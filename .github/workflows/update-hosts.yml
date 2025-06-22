@@ -23,6 +23,28 @@ jobs:
           curl -sSL "http://sbc.io/hosts/hosts" -o hosts/unified/stevenblack-hosts.txt
           curl -sSL "https://raw.githubusercontent.com/Turtlecute33/toolz/refs/heads/master/src/d3host.adblock" -o hosts/ads-track/d3host.txt
 
+      - name: Generate README.md with stats
+        run: |
+          echo '# blacklist-hosts' > README.md
+          echo '' >> README.md
+          echo 'This repo contains a list to block specific domains.' >> README.md
+          echo '' >> README.md
+          echo '## 📊 Statistics' >> README.md
+          echo '' >> README.md
+          echo '> Total blocked domains' >> README.md
+          echo '' >> README.md
+          echo '| File Path | Jumlah Domain |' >> README.md
+          echo '|-----------|----------------|' >> README.md
+
+          find hosts -type f | while read file; do
+            count=$(grep -vE '^\s*(#|!)' "$file" | grep -vE '^\s*$' | wc -l)
+            echo "| \`$file\` | $count |" >> README.md
+          done
+
+          echo '' >> README.md
+          echo "🕒 Last Updated: \`$(date -u '+%Y-%m-%d %H:%M UTC')\`" >> README.md
+          
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
