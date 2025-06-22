@@ -31,14 +31,17 @@ jobs:
           echo '' >> README.md
           echo '## 📊 Statistics' >> README.md
           echo '' >> README.md
-          echo '> Total blocked domains' >> README.md
+          echo 'Total blocked domains' >> README.md
           echo '' >> README.md
-          echo '| File Path | Jumlah Domain |' >> README.md
+          echo '| Files | Total Domains |' >> README.md
           echo '|-----------|----------------|' >> README.md
 
-          find hosts -type f | while read file; do
+          BASE_URL="https://raw.githubusercontent.com/${{ github.repository }}/main"
+
+          find hosts -type f | sort | while read file; do
             count=$(grep -vE '^\s*(#|!)' "$file" | grep -vE '^\s*$' | wc -l)
-            echo "| \`$file\` | $count |" >> README.md
+            raw_url="${BASE_URL}/${file}"
+            echo "| [\`$file\`]($raw_url) | $count |" >> README.md
           done
 
           echo '' >> README.md
