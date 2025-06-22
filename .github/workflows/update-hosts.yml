@@ -55,10 +55,11 @@ jobs:
 
       - name: Commit and push if changes
         run: |
-          git add hosts/ README.md
+          git add hosts/
           if git diff --cached --quiet; then
             echo "No changes detected."
           else
+            git add README.md
             git commit -m "chore: update hosts files"
             git push
           fi
