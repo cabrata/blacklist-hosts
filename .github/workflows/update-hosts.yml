@@ -1,0 +1,40 @@
+name: Update Hosts Files
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Setiap hari jam 00:00 UTC
+  workflow_dispatch: # Bisa juga dijalankan manual dari GitHub UI
+
+jobs:
+  update-hosts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download and update hosts files
+        run: |
+          mkdir -p hosts/ads-track hosts/fakenews hosts/gambling hosts/porn hosts/unified
+
+          curl -sSL "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt" -o hosts/ads-track/adguard.txt
+          curl -sSL "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews/hosts" -o hosts/fakenews/stevenblack-hosts.txt
+          curl -sSL "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling/hosts" -o hosts/gambling/stevenblack-hosts.txt
+          curl -sSL "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts" -o hosts/porn/stevenblack-hosts.txt
+          curl -sSL "http://sbc.io/hosts/hosts" -o hosts/unified/stevenblack-hosts.txt
+          curl -sSL "https://raw.githubusercontent.com/Turtlecute33/toolz/refs/heads/master/src/d3host.adblock" -o hosts/ads-track/d3host.txt
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push if changes
+        run: |
+          git add hosts/
+          if git diff --cached --quiet; then
+            echo "No changes detected."
+          else
+            git commit -m "chore: update hosts files"
+            git push
+          fi
+          
