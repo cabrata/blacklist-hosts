@@ -2,8 +2,8 @@ name: Update Hosts Files
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Setiap hari jam 00:00 UTC
-  workflow_dispatch: # Bisa juga dijalankan manual dari GitHub UI
+    - cron: '0 0 * * *' 
+  workflow_dispatch: 
 
 jobs:
   update-hosts:
@@ -52,7 +52,7 @@ jobs:
 
       - name: Commit and push if changes
         run: |
-          git add hosts/
+          git add hosts/ README.md
           if git diff --cached --quiet; then
             echo "No changes detected."
           else
