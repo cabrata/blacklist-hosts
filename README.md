@@ -8,7 +8,7 @@ Total blocked domains
 
 | Files | Total Domains |
 |-----------|----------------|
-| [`hosts/ads-track/adguard.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/ads-track/adguard.txt) | 164680 |
+| [`hosts/ads-track/adguard.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/ads-track/adguard.txt) | 164707 |
 | [`hosts/ads-track/d3host.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/ads-track/d3host.txt) | 133 |
 | [`hosts/fakenews/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/fakenews/stevenblack-hosts.txt) | 85896 |
 | [`hosts/gambling/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/gambling/stevenblack-hosts.txt) | 89702 |
@@ -16,4 +16,4 @@ Total blocked domains
 | [`hosts/porn/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/porn/stevenblack-hosts.txt) | 159711 |
 | [`hosts/unified/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/unified/stevenblack-hosts.txt) | 83120 |
 
-🕒 Last Updated: `2026-04-30 12:13 UTC`
+🕒 Last Updated: `2026-04-30 15:06 UTC`
