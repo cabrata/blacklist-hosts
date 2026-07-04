@@ -10,10 +10,10 @@ Total blocked domains
 |-----------|----------------|
 | [`hosts/ads-track/adguard.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/ads-track/adguard.txt) | 154963 |
 | [`hosts/ads-track/d3host.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/ads-track/d3host.txt) | 133 |
-| [`hosts/fakenews/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/fakenews/stevenblack-hosts.txt) | 85262 |
-| [`hosts/gambling/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/gambling/stevenblack-hosts.txt) | 89302 |
+| [`hosts/fakenews/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/fakenews/stevenblack-hosts.txt) | 81370 |
+| [`hosts/gambling/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/gambling/stevenblack-hosts.txt) | 85435 |
 | [`hosts/other/zionist.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/other/zionist.txt) | 1 |
-| [`hosts/porn/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/porn/stevenblack-hosts.txt) | 159081 |
-| [`hosts/unified/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/unified/stevenblack-hosts.txt) | 82941 |
+| [`hosts/porn/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/porn/stevenblack-hosts.txt) | 155214 |
+| [`hosts/unified/stevenblack-hosts.txt`](https://raw.githubusercontent.com/cabrata/blacklist-hosts/main/hosts/unified/stevenblack-hosts.txt) | 79029 |
 
-🕒 Last Updated: `2026-07-04 19:06 UTC`
+🕒 Last Updated: `2026-07-04 20:53 UTC`
