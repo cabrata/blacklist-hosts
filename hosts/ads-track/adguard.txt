@@ -1,9 +1,9 @@
 !
 ! Title: AdGuard DNS filter
 ! Description: List composed of several filters (AdGuard Base filter, Social Media filter, Tracking Protection filter, Mobile Ads filter, EasyList and EasyPrivacy) and simplified specifically to be better compatible with DNS-level ad blocking
-! Version: 1.0.74.88
+! Version: 1.0.74.90
 ! Homepage: https://github.com/AdguardTeam/AdguardSDNSFilter
-! Last modified: 2026-08-04T14:53:29.620Z
+! Last modified: 2026-08-04T17:35:38.286Z
 !
 ! Compiled by @adguard/hostlist-compiler v2.1.0
 !
@@ -8524,6 +8524,7 @@ vkcdnservice.appspot.com^
 ||9foz3ujhiymihlgnru8jkznwu.rest^
 ||9fz8rn9rqlfeimjoyic3uij.cfd^
 ||9g9fg6jh6y2vftvz7x6y.rest^
+||9gz5q1l1tm3puxk.rest^
 ||9h6wuyen6kmm6rptqujjm2mkuij3bbpo6.cfd^
 ||9hcemeufb7t9i8rpxf7zi.cfd^
 ||9instatement.com^
@@ -13185,6 +13186,7 @@ vkcdnservice.appspot.com^
 ||bold-potential.com^
 ||boldestedifierfijian.cfd^
 ||boletetimers.cfd^
+||bolichejerl.cyou^
 ||bolidedecided.cyou^
 ||bolkdoutous.qpon^
 ||bollixpapula.com^
@@ -14267,6 +14269,7 @@ vkcdnservice.appspot.com^
 ||cahootdisodic.com^
 ||cainginburrocagmag.cfd^
 ||caingincagers.qpon^
+||cainianbussockguars.qpon^
 ||cairnedmacacus.qpon^
 ||caissonlatitat.qpon^
 ||caitifafrete.qpon^
@@ -16955,6 +16958,7 @@ vkcdnservice.appspot.com^
 ||cuteab.com^
 ||cuterbond.com^
 ||cutescale.online^
+||cuteysdefang.qpon^
 ||cutinseats.qpon^
 ||cutiplpknfpbn.online^
 ||cuttagetibiale.qpon^
@@ -18169,6 +18173,7 @@ vkcdnservice.appspot.com^
 ||dinosaurprinciples.com^
 ||dioboldualistpenile.qpon^
 ||dioboljizzen.cyou^
+||diobolssorrowlr.cyou^
 ||diobolsuseable.cfd^
 ||diocoelstentonsurer.qpon^
 ||dioptralbw.shop^
@@ -18188,6 +18193,7 @@ vkcdnservice.appspot.com^
 ||diqartxheos.com^
 ||diqbgqeteua.com^
 ||diqjitlusjki.com^
+||diquatfulani.cyou^
 ||dirbvattydams.site^
 ||direcompulsion.com^
 ||direct-specific.com^
@@ -18634,6 +18640,7 @@ vkcdnservice.appspot.com^
 ||dominionclatterrounded.com^
 ||dominioneastern.com^
 ||domipush.com^
+||domnsooky.cyou^
 ||dompeterapp.com^
 ||domslc.com^
 ||donarrabblerdegener.cyou^
@@ -21499,6 +21506,7 @@ vkcdnservice.appspot.com^
 ||factsheetgrievancekeg.com^
 ||facultativethus.com^
 ||facultycoffeehouseharp.com^
+||facundapogenylandmen.cyou^
 ||facxqniewyxym.site^
 ||facxsfbnusxhn.online^
 ||fadegranted.com^
@@ -33702,6 +33710,7 @@ vkcdnservice.appspot.com^
 ||milkencarajas.cfd^
 ||milksopeffront.shop^
 ||milky-silver.pro^
+||milkysell.pro^
 ||milkywaynewspaper.com^
 ||milladvocacyunderstandable.com^
 ||millennialmedia.com^
@@ -33827,6 +33836,7 @@ vkcdnservice.appspot.com^
 ||mitblcskeqhxr.site^
 ||mitellaimponewoilie.cyou^
 ||mitherhugsrantism.cyou^
+||mitomedrabbed.shop^
 ||mitopamosal.com^
 ||mitresaxillae.com^
 ||mittenagregelatania.cfd^
@@ -38500,6 +38510,7 @@ vkcdnservice.appspot.com^
 ||pdhwgryymgvyr.website^
 ||pdiiclqzeglig.site^
 ||pditfcqewnobw.site^
+||pdixvlkcnchon.online^
 ||pdjbkuevogfks.online^
 ||pdkiqznelwvdj.site^
 ||pdkxnkjozibbf.website^
@@ -39159,6 +39170,7 @@ vkcdnservice.appspot.com^
 ||pitylusjuckiescolove.cyou^
 ||pityneedsdads.com^
 ||piucvzvncenei.site^
+||piupvzxrjejxr.online^
 ||piuyt.com^
 ||pivciahcdzvlm.website^
 ||pivotrunner.com^
@@ -39795,6 +39807,7 @@ vkcdnservice.appspot.com^
 ||ppctraffic.co^
 ||ppduaejaozsch.website^
 ||pperkvadtvtxk.online^
+||ppezbvebaffvx.online^
 ||ppggkvponl.com^
 ||pphieftkuwccw.site^
 ||pphnereis.cyou^
@@ -40208,6 +40221,7 @@ vkcdnservice.appspot.com^
 ||promdidna.com^
 ||promerycergerful.com^
 ||prominentpray.com^
+||promisecresyls.qpon^
 ||promiseoncomestey.qpon^
 ||promisespreepanic.com^
 ||promo-bc.com^
@@ -40718,6 +40732,7 @@ vkcdnservice.appspot.com^
 ||pvuaypsrfcecd.site^
 ||pvuznrtadztxu.space^
 ||pvvkigebunabd.site^
+||pvvobffbwykcv.website^
 ||pvwmszjztmcoh.site^
 ||pvzesryoifiit.online^
 ||pw5ztjnz8557v35.rest^
@@ -42364,6 +42379,7 @@ vkcdnservice.appspot.com^
 ||reflamebilosotogyps.qpon^
 ||reflectingbunaloud.com^
 ||reflectinglouiseera.com^
+||refletsimpala.cyou^
 ||reflowsamchoor.cfd^
 ||reflushcabook.qpon^
 ||refluxvenous.cfd^
@@ -44646,6 +44662,7 @@ vkcdnservice.appspot.com^
 ||semaisebriseisrereel.cyou^
 ||semeel.click^
 ||semeiashesha.cyou^
+||sementunpower.qpon^
 ||semestersets.com^
 ||semiansyllab.cfd^
 ||semicjubiles.cyou^
@@ -45236,6 +45253,7 @@ vkcdnservice.appspot.com^
 ||sikuptdybwuwp.site^
 ||silanesyampa.shop^
 ||silaselsehold.com^
+||silbucoxhstkd.space^
 ||sildsloverly.qpon^
 ||silebu.xyz^
 ||sileemis.cfd^
@@ -45383,6 +45401,7 @@ vkcdnservice.appspot.com^
 ||sjambokcursesramex.qpon^
 ||sjbnwzwwmcubf.site^
 ||sjbtqzptourxf.online^
+||sjcjqbxogouxr.online^
 ||sjdkqtmogbnhq.website^
 ||sjeiqeuhroksi.site^
 ||sjfyupmvpazsj.store^
@@ -46301,6 +46320,7 @@ vkcdnservice.appspot.com^
 ||sponsorinserttimeout.com^
 ||sponsorpay.com^
 ||sponsorshipprickly.com^
+||spooferfacial.cyou^
 ||spooksmalldowny.com^
 ||spookyascentfranchise.com^
 ||spoolssacrary.cfd^
@@ -50735,6 +50755,7 @@ vkcdnservice.appspot.com^
 ||upkmxceubeyuz.space^
 ||upknodzbfkxmm.space^
 ||upkpezmxsosqa.today^
+||upkqznujuodgb.online^
 ||upleandiocoel.cyou^
 ||upleaptmuffins.cyou^
 ||upliftsearch.com^
@@ -51420,6 +51441,7 @@ vkcdnservice.appspot.com^
 ||vdukpbmavzcne.store^
 ||vdulz.org^
 ||vdunprmzgffmf.site^
+||vdvefaheagcdd.space^
 ||vdvqtappes.com^
 ||vdwgagjfqoreu.site^
 ||vdxagufwubpfb.space^
@@ -52356,6 +52378,7 @@ vkcdnservice.appspot.com^
 ||vwcmeebcmvgbq.website^
 ||vwcsjufzjcqen.site^
 ||vwcwncsrsedyd.space^
+||vwe2gntbzifptkfpukh87rwg.cfd^
 ||vwfurlcwpujuz.site^
 ||vwfwdxariknxp.website^
 ||vwfxuhjgwwent.online^
@@ -52441,6 +52464,7 @@ vkcdnservice.appspot.com^
 ||vypddqizgpkpo.store^
 ||vypmgvwjvgztv.space^
 ||vyragdxymcqtw.online^
+||vysdevmiatwcx.website^
 ||vyshuddphvxka.store^
 ||vyspfyimbwvls.site^
 ||vytix.net^
@@ -53351,6 +53375,7 @@ vkcdnservice.appspot.com^
 ||wildxxxparties.com^
 ||wilechacmas.cyou^
 ||wilecrrlefaxq.space^
+||wiledatomity.qpon^
 ||willierdeacon.cyou^
 ||willingcease.com^
 ||willinglybasketball.com^
@@ -53759,6 +53784,7 @@ vkcdnservice.appspot.com^
 ||wormlaboratoryspeeding.com^
 ||wornoutquica.qpon^
 ||wornpichi.shop^
+||worqzcrxiwuob.online^
 ||worried-advantage.com^
 ||worried-difference.pro^
 ||worried-sample.com^
@@ -144742,6 +144768,7 @@ dlsdk.appsflyer.com^
 ||messyoranges.com^
 ||metajaws.com^
 ||metawelcome.com^
+||metricfresh.com^
 ||midnightmead.com^
 ||mightyspiders.com^
 ||millswell.com^
@@ -156037,6 +156064,9 @@ dlsdk.appsflyer.com^
 ||xikprjbbp.com^
 ||faoda4xd2.com^
 ||esudrp.cn^
+||bmjtlfhahyhhru.com^
+||y89fjgm3vc.com^
+||mousse32.com^
 ||3927fqw3xd.com^
 ||q643s5wiiz.com^
 ||ftrgpdecexhzto.com^
@@ -162590,6 +162620,7 @@ analytics-*.aasaam.com
 ||torvind.com^
 ||a4.overclockers.ua^
 ||novunu.football-plyus.net^
+@@||partner.o2online.de^|
 @@||data.notify.macys.com^|
 @@||om-ssl.consorsbank.de^|
 @@|cdn.taboola.com^|
