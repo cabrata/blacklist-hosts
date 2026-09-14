@@ -1,0 +1,14 @@
+[Unit]
+Description=Install dnsdist blocklist CDB built by GitHub Actions
+Documentation=https://github.com/cabrata/blacklist-hosts/releases/tag/cdb-latest
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dnsdist-blocklist-sync
+# dnsdist re-opens the CDB by itself within 60s (newCDBKVStore refreshDelay),
+# so there is deliberately no reload here.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=900

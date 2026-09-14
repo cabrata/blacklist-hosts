@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly check for a new dnsdist blocklist CDB build
+Documentation=https://github.com/cabrata/blacklist-hosts/releases/tag/cdb-latest
+
+[Timer]
+# Cheap when nothing changed: only SHA256SUMS is downloaded.
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

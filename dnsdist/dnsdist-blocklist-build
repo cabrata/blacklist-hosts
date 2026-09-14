@@ -1,0 +1,485 @@
+#!/usr/bin/env python3
+"""
+dnsdist-blocklist-build -- fetch DNS blocklists in assorted formats and compile
+them into CDB files that dnsdist's KeyValueStore can consult.
+
+Keys are DNS wire format (\x03www\x07example\x03com\x00), which is what
+KeyValueLookupKeySuffix(minLabels, true) generates. Storing "example.com"
+therefore also blocks every subdomain of it.
+
+Values hold the source list name, so `cdb -q` tells you why a domain is blocked.
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+CONFIG = "/etc/dnsdist/blocklists.conf"
+CACHE = "/var/cache/dnsdist-blocklists"
+OUT_DIR = "/etc/dnsdist"
+STATS = "/var/lib/dnsdist/blocklist-stats.json"
+
+LABEL_RE = re.compile(r"^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$")
+IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
+
+HOSTS_IPS = {"0.0.0.0", "127.0.0.1", "::", "::1", "0", "127.0.0.2"}
+
+JUNK = {
+    "localhost", "localhost.localdomain", "local", "broadcasthost",
+    "ip6-localhost", "ip6-loopback", "ip6-localnet", "ip6-mcastprefix",
+    "ip6-allnodes", "ip6-allrouters", "ip6-allhosts", "lan", "home",
+    "invalid", "test", "example", "localdomain",
+}
+
+# AdBlock modifiers we can honour by simply blocking the domain. Anything else
+# (dnsrewrite, client, denyallow, dnstype, badfilter, ...) is too expressive for
+# a flat domain set, so those rules are skipped rather than over-blocked.
+SAFE_MODIFIERS = {"important", "all", "third-party", "3p", "first-party", "1p", "document", "popup"}
+
+# $dnsrewrite=<target> is a block whenever the target is a sink or one of
+# AdGuard's block pages; a rewrite pointing at a real host is a redirect and
+# must not be turned into a block.
+BLOCK_SINKS = {"0.0.0.0", "::", "nxdomain", "refused", "nodata", ""}
+BLOCK_PAGE_SUFFIX = ".dns.adguard.com"
+
+
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+def punycode(domain):
+    """Return an ASCII form of domain, or None if it cannot be encoded."""
+    if domain.isascii():
+        return domain
+    out = []
+    for lab in domain.split("."):
+        if lab.isascii():
+            out.append(lab)
+            continue
+        try:
+            out.append(lab.encode("idna").decode("ascii"))
+        except Exception:
+            return None
+    return ".".join(out)
+
+
+def normalise(domain):
+    """Validate and canonicalise one domain. Returns str or None."""
+    if not domain:
+        return None
+    d = domain.strip().strip(".").lower()
+    if not d or len(d) > 253:
+        return None
+    if d in JUNK or IPV4_RE.match(d) or ":" in d:
+        return None
+    d = punycode(d)
+    if d is None:
+        return None
+    labels = d.split(".")
+    if len(labels) < 2:            # bare TLDs are too dangerous to block
+        return None
+    for lab in labels:
+        if not LABEL_RE.match(lab):
+            return None
+    if labels[-1].isdigit():       # trailing numeric label => an IP, not a name
+        return None
+    return d
+
+
+def parse_line(raw):
+    """Parse one blocklist line. Returns (kind, domain) with kind in
+    {"block", "allow"}, or None when the line carries no usable rule."""
+    line = raw.strip()
+    if not line:
+        return None
+
+    # Comments and section headers used by the various list formats.
+    if line[0] in "#!;[":
+        return None
+
+    # Cosmetic / scriptlet filters are page-level, not DNS-level.
+    for marker in ("##", "#@#", "#%#", "#$#", "#?#"):
+        if marker in line:
+            return None
+
+    kind = "block"
+
+    # ---- dnsmasq: address=/a.com/b.com/0.0.0.0 , server=/a.com/ , local=/a.com/
+    if line.startswith(("address=/", "server=/", "local=/")):
+        parts = line.split("/")[1:]
+        if parts and (IPV4_RE.match(parts[-1]) or parts[-1] in ("", "#", "::")):
+            parts = parts[:-1]
+        for p in parts:
+            d = normalise(p)
+            if d:
+                return (kind, d)
+        return None
+
+    # ---- unbound: local-zone: "example.com" refused
+    if line.startswith("local-zone:"):
+        m = re.search(r'"([^"]+)"', line)
+        return (kind, normalise(m.group(1))) if m and normalise(m.group(1)) else None
+
+    # ---- RPZ: example.com CNAME .
+    if re.match(r"^\S+\s+(IN\s+)?CNAME\s+\.\s*$", line, re.I):
+        d = line.split()[0]
+        if d.startswith("*."):
+            d = d[2:]
+        d = normalise(d)
+        return (kind, d) if d else None
+
+    # ---- AdBlock / AdGuard syntax
+    if line.startswith("@@"):
+        kind = "allow"
+        line = line[2:]
+
+    if line.startswith("||") or line.startswith("|") or "^" in line or "$" in line:
+        core = line
+        if "$" in core:
+            core, _, mods = core.partition("$")
+            names = set()
+            for mod in mods.split(","):
+                mod = mod.strip()
+                if not mod:
+                    continue
+                mname, _, mval = mod.partition("=")
+                mname = mname.strip().lstrip("~")
+                if mname == "dnsrewrite":
+                    # forms: NXDOMAIN | 0.0.0.0 | NOERROR;A;0.0.0.0 | host.tld
+                    target = mval.strip().lower().rstrip(".").rsplit(";", 1)[-1]
+                    if target in BLOCK_SINKS or target.endswith(BLOCK_PAGE_SUFFIX):
+                        continue
+                    return None
+                names.add(mname)
+            if not names <= SAFE_MODIFIERS:
+                return None
+        if core.startswith("/") and core.rstrip().endswith("/"):
+            return None                       # regex rule
+        core = core.lstrip("|").rstrip("|").rstrip("^")
+        core = re.sub(r"^https?://", "", core)
+        if "/" in core:
+            return None                       # URL path -- not expressible in DNS
+        if core.startswith("*."):
+            core = core[2:]
+        if "*" in core:
+            return None                       # mid-label wildcard
+        core = core.rstrip("^")
+        d = normalise(core)
+        return (kind, d) if d else None
+
+    # ---- hosts file: "0.0.0.0 example.com" (possibly several names per line)
+    fields = line.split("#")[0].split()
+    if not fields:
+        return None
+    if len(fields) >= 2 and (fields[0] in HOSTS_IPS or IPV4_RE.match(fields[0]) or ":" in fields[0]):
+        for name in fields[1:]:
+            d = normalise(name)
+            if d:
+                return (kind, d)
+        return None
+
+    # ---- plain domain list (one name per line)
+    if len(fields) == 1:
+        token = fields[0]
+        if token.startswith("*."):
+            token = token[2:]
+        d = normalise(token)
+        return (kind, d) if d else None
+
+    return None
+
+
+def parse_text(text):
+    block, allow = set(), set()
+    skipped = 0
+    for raw in text.splitlines():
+        r = parse_line(raw)
+        if r is None:
+            if raw.strip() and raw.strip()[0] not in "#!;[":
+                skipped += 1
+            continue
+        (allow if r[0] == "allow" else block).add(r[1])
+    return block, allow, skipped
+
+
+def fetch(name, url, timeout=90, refresh=True):
+    """Download a list, falling back to the on-disk cache when the fetch fails.
+    Returns (text, from_cache) or (None, False) if nothing is available."""
+    os.makedirs(CACHE, exist_ok=True)
+    cached = os.path.join(CACHE, name + ".txt")
+
+    if refresh:
+        tmp = cached + ".new"
+        cmd = ["curl", "-fsSL", "--compressed", "--retry", "2", "--retry-delay", "2",
+               "--max-time", str(timeout), "-A", "dnsdist-blocklist-build/1.0",
+               "-o", tmp, url]
+        rc = subprocess.run(cmd, capture_output=True).returncode
+        if rc == 0 and os.path.getsize(tmp) > 0:
+            os.replace(tmp, cached)
+            return open(cached, encoding="utf-8", errors="replace").read(), False
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        log(f"  !! download failed (curl rc={rc}) for {name}")
+
+    if os.path.exists(cached):
+        age = (time.time() - os.path.getmtime(cached)) / 3600
+        log(f"  -> using cached copy of {name} ({age:.1f}h old)")
+        return open(cached, encoding="utf-8", errors="replace").read(), True
+    return None, False
+
+
+PSL_URL = "https://publicsuffix.org/list/public_suffix_list.dat"
+PSL_EXCEPTIONS = "/etc/dnsdist/psl-exceptions.conf"
+
+
+def public_suffixes(refresh=True):
+    """Names under which anybody can register, from the Public Suffix List.
+
+    Used purely as a guard. dnsdist matches by suffix, so one blocklist entry
+    for a name like vercel.app or onrender.com silently takes out every site
+    hosted on that platform -- and gambling lists do carry such entries.
+    """
+    text, _ = fetch("public-suffix-list", PSL_URL, refresh=refresh)
+    if text is None:
+        log("WARNING: no public suffix list available -- guard disabled")
+        return set()
+    out = set()
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("//"):
+            continue
+        out.add(line.lstrip("*.").lstrip("!").lower())
+
+    # Suffixes the operator has deliberately decided to treat as ordinary
+    # names. Kept as an explicit opt-out file rather than by weakening the
+    # guard, so the decision stays visible and reversible.
+    exempt = set()
+    try:
+        with open(PSL_EXCEPTIONS) as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip().lower()
+                if line:
+                    exempt.add(line)
+    except FileNotFoundError:
+        pass
+
+    if exempt & out:
+        log("public-suffix guard: exempting " + ", ".join(sorted(exempt & out)))
+    return out - exempt
+
+
+def collapse(domains):
+    """Drop entries already covered by a shorter parent, since dnsdist does a
+    suffix lookup. Shrinks the CDB substantially on hosts-style lists."""
+    keep = set()
+    for d in domains:
+        parts = d.split(".")
+        covered = False
+        for i in range(1, len(parts) - 1):
+            if ".".join(parts[i:]) in domains:
+                covered = True
+                break
+        if not covered:
+            keep.add(d)
+    return keep
+
+
+def wire(domain):
+    out = bytearray()
+    for lab in domain.split("."):
+        out.append(len(lab))
+        out += lab.encode("ascii")
+    out.append(0)
+    return bytes(out)
+
+
+def write_cdb(path, mapping):
+    """Build a CDB via tinycdb. Note: `cdb -c` must NOT be given -m, which
+    mangles keys containing NUL bytes (and every wire-format key ends in one)."""
+    dirname = os.path.dirname(path) or "."
+    tmp_cdb = os.path.join(dirname, ".{}.new".format(os.path.basename(path)))
+    tmp_work = os.path.join(dirname, ".{}.tmp".format(os.path.basename(path)))
+    proc = subprocess.Popen(["cdb", "-c", "-t", tmp_work, tmp_cdb], stdin=subprocess.PIPE)
+    w = proc.stdin
+    for domain, source in mapping.items():
+        k = wire(domain)
+        v = source.encode("ascii", "replace")
+        w.write(b"+%d,%d:" % (len(k), len(v)) + k + b"->" + v + b"\n")
+    w.write(b"\n")
+    w.close()
+    if proc.wait() != 0:
+        raise SystemExit("cdb build failed for " + path)
+    os.chmod(tmp_cdb, 0o644)
+    os.replace(tmp_cdb, path)
+    return os.path.getsize(path)
+
+
+def read_config(path):
+    sources = []
+    with open(path) as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(None, 2)
+            if len(parts) != 3:
+                log(f"config: ignoring malformed line: {line}")
+                continue
+            kind, name, target = parts
+            if kind not in ("block", "allow", "blockfile", "allowfile"):
+                log(f"config: unknown type {kind!r}, ignoring")
+                continue
+            sources.append((kind, name, target))
+    return sources
+
+
+def main():
+    global CACHE, PSL_EXCEPTIONS
+    ap = argparse.ArgumentParser(description="Compile DNS blocklists into dnsdist CDB files")
+    ap.add_argument("--config", default=CONFIG)
+    ap.add_argument("--out-dir", default=OUT_DIR)
+    ap.add_argument("--no-download", action="store_true", help="use cached copies only")
+    ap.add_argument("--dry-run", action="store_true", help="parse and report, write nothing")
+    ap.add_argument("--no-collapse", action="store_true", help="keep subdomains covered by a parent")
+    ap.add_argument("--cache", default=CACHE, help="download cache directory")
+    ap.add_argument("--stats", default=STATS, help="where to write the stats JSON")
+    ap.add_argument("--psl-exceptions", default=None,
+                    help="default: psl-exceptions.conf next to --config")
+    args = ap.parse_args()
+
+    # The same script runs on the server and in GitHub Actions
+    # (.github/workflows/build-cdb.yml), so local paths follow the config file.
+    CACHE = args.cache
+    PSL_EXCEPTIONS = args.psl_exceptions or os.path.join(
+        os.path.dirname(os.path.abspath(args.config)), "psl-exceptions.conf")
+    config_dir = os.path.dirname(os.path.abspath(args.config))
+
+    sources = read_config(args.config)
+    if not sources:
+        raise SystemExit("no sources configured in " + args.config)
+
+    block, allow = {}, {}
+    per_list = {}
+    stale = []
+
+    for kind, name, target in sources:
+        t0 = time.time()
+        if kind in ("blockfile", "allowfile"):
+            target = os.path.join(config_dir, target)   # no-op for absolute paths
+            if not os.path.exists(target):
+                log(f"[{name}] local file missing: {target}")
+                continue
+            text = open(target, encoding="utf-8", errors="replace").read()
+            cached = False
+        else:
+            text, cached = fetch(name, target, refresh=not args.no_download)
+            if text is None:
+                log(f"[{name}] SKIPPED -- no data and no cache")
+                continue
+        if cached:
+            stale.append(name)
+
+        b, a, skipped = parse_text(text)
+        if kind in ("allow", "allowfile"):
+            a |= b
+            b = set()
+        for d in b:
+            block.setdefault(d, name)
+        for d in a:
+            allow.setdefault(d, name)
+        per_list[name] = {"block": len(b), "allow": len(a), "unparsed": skipped}
+        log(f"[{name}] block={len(b)} allow={len(a)} unparsed={skipped} ({time.time()-t0:.1f}s)")
+
+    log("")
+    raw_block = len(block)
+    raw_allow = len(allow)
+
+    # The public suffix guard, needed on both sides. Computed once.
+    suffixes = public_suffixes(refresh=not args.no_download)
+
+    # allowlist public-suffix guard. This has to run before the removal below:
+    # an allow entry beats the blocklist for everything under it, so a single
+    # entry like "co.id" or "web.app" would quietly un-block every blocked name
+    # on that whole suffix. Published whitelists do carry them -- TrustPositif's
+    # lists "co.id" outright -- and the damage is invisible once applied.
+    if suffixes and allow:
+        offenders = sorted(d for d in allow if d in suffixes)
+        for d in offenders:
+            del allow[d]
+        if offenders:
+            shown = ", ".join(offenders[:12])
+            more = "" if len(offenders) <= 12 else " (+%d more)" % (len(offenders) - 12)
+            log("dropped %d public-suffix allowlist entries: %s%s"
+                % (len(offenders), shown, more))
+
+    # An allowlist entry beats a blocklist entry for that name and everything
+    # under it, so drop the covered blocklist entries at build time too.
+    if allow:
+        allow_set = set(allow)
+        dropped = 0
+        for d in list(block):
+            parts = d.split(".")
+            for i in range(len(parts) - 1):
+                if ".".join(parts[i:]) in allow_set:
+                    del block[d]
+                    dropped += 1
+                    break
+        log(f"allowlist removed {dropped} blocklist entries")
+
+    # Block side. Must run before collapse: collapse keeps the shortest parent,
+    # so leaving a public suffix in would delete every specific subdomain it
+    # covers and replace them all with a block on the entire platform.
+    if suffixes:
+        offenders = sorted(d for d in block if d in suffixes)
+        for d in offenders:
+            del block[d]
+        if offenders:
+            shown = ", ".join(offenders[:12])
+            more = "" if len(offenders) <= 12 else " (+%d more)" % (len(offenders) - 12)
+            log("dropped %d public-suffix entries: %s%s" % (len(offenders), shown, more))
+
+    if not args.no_collapse:
+        kept = collapse(set(block))
+        removed = len(block) - len(kept)
+        block = {d: block[d] for d in kept}
+        log(f"collapsed {removed} entries already covered by a parent domain")
+
+    log("")
+    log(f"blocklist: {raw_block} unique -> {len(block)} after reduction")
+    log(f"allowlist: {raw_allow} unique")
+
+    if not block:
+        raise SystemExit("refusing to write an empty blocklist")
+
+    if args.dry_run:
+        log("dry-run: nothing written")
+        return
+
+    bpath = os.path.join(args.out_dir, "blocklist.cdb")
+    apath = os.path.join(args.out_dir, "allowlist.cdb")
+    bsize = write_cdb(bpath, block)
+    # dnsdist opens the allow CDB unconditionally, so always emit a valid file.
+    asize = write_cdb(apath, allow or {"placeholder.invalid": "none"})
+    log(f"wrote {bpath} ({bsize/1048576:.1f} MiB)")
+    log(f"wrote {apath} ({asize/1024:.1f} KiB)")
+
+    os.makedirs(os.path.dirname(os.path.abspath(args.stats)), exist_ok=True)
+    with open(args.stats, "w") as fh:
+        json.dump({
+            "built_at": int(time.time()),
+            "blocked_domains": len(block),
+            "allowed_domains": len(allow),
+            "blocklist_bytes": bsize,
+            "lists": per_list,
+            "served_from_cache": stale,
+        }, fh, indent=2)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,61 @@
+#!/bin/bash
+# dnsdist-blocklist-sync -- install the CDB files that GitHub Actions compiled.
+#
+# The build runs in github.com/cabrata/blacklist-hosts
+# (.github/workflows/build-cdb.yml) and is published to the cdb-latest release.
+# This only downloads, verifies and swaps the files in; dnsdist re-opens the
+# stores by itself within 60s. dnsdist-blocklist-build still works locally as a
+# manual fallback.
+set -euo pipefail
+
+BASE="${BASE:-https://github.com/cabrata/blacklist-hosts/releases/download/cdb-latest}"
+OUT=/etc/dnsdist
+STATS=/var/lib/dnsdist/blocklist-stats.json
+MIN_BLOCKED=500000
+
+work=$(mktemp -d /var/tmp/dnsdist-sync.XXXXXX)
+trap 'rm -rf "$work"' EXIT
+
+fetch() {
+    curl -fsSL --retry 3 --retry-delay 5 --max-time 600 \
+        -A dnsdist-blocklist-sync/1.0 -o "$work/$1" "$BASE/$1"
+}
+
+fetch SHA256SUMS
+
+if (cd "$OUT" && grep -E ' (blocklist|allowlist)\.cdb$' "$work/SHA256SUMS" | sha256sum --quiet -c -) >/dev/null 2>&1; then
+    echo "already up to date"
+    exit 0
+fi
+
+for f in blocklist.cdb allowlist.cdb blocklist-stats.json; do
+    fetch "$f"
+done
+
+# A mismatch usually means a build was mid-upload; the next run picks it up.
+if ! (cd "$work" && sha256sum --quiet -c SHA256SUMS); then
+    echo "checksum mismatch, not installing (release probably being updated)" >&2
+    exit 1
+fi
+
+blocked=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["blocked_domains"])' "$work/blocklist-stats.json")
+if [ "$blocked" -lt "$MIN_BLOCKED" ]; then
+    echo "only $blocked blocked domains (minimum $MIN_BLOCKED), not installing" >&2
+    exit 1
+fi
+
+check=$(DNSDIST_BLOCK_CDB="$work/blocklist.cdb" DNSDIST_ALLOW_CDB="$work/allowlist.cdb" \
+    dnsdist-blocklist-query doubleclick.net google.com)
+if ! grep -q '^doubleclick.net: BLOCKED' <<<"$check" || ! grep -q '^google.com: ALLOWED' <<<"$check"; then
+    printf 'downloaded CDB failed the lookup check, not installing:\n%s\n' "$check" >&2
+    exit 1
+fi
+
+# Stage next to the target so the rename is atomic.
+for f in allowlist.cdb blocklist.cdb; do
+    install -m 644 "$work/$f" "$OUT/.$f.sync"
+    mv -f "$OUT/.$f.sync" "$OUT/$f"
+done
+install -D -m 644 "$work/blocklist-stats.json" "$STATS"
+
+echo "installed build with $blocked blocked domains"

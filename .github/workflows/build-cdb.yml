@@ -1,0 +1,112 @@
+name: Build dnsdist CDB
+
+# Compiles dnsdist/blocklists.conf into blocklist.cdb + allowlist.cdb and
+# publishes them as assets of the `cdb-latest` release. The DNS server pulls
+# them with dnsdist-blocklist-sync.timer.
+#
+# Release assets rather than commits: the blocklist CDB is ~57 MB and changes
+# every day, which would bloat git history fast (GitHub rejects files >100 MB).
+
+on:
+  schedule:
+    - cron: '30 17 * * *'   # 00:30 WIB
+  push:
+    branches: [main]
+    paths:
+      - 'dnsdist/**'
+      - '.github/workflows/build-cdb.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-cdb
+  cancel-in-progress: false
+
+env:
+  TAG: cdb-latest
+  MIN_BLOCKED: 500000
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout dnsdist/
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: dnsdist
+
+      - name: Install tinycdb
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tinycdb
+
+      # The builder falls back to the last good copy when a source is down, so
+      # keep the download cache between runs.
+      - name: Restore source cache
+        uses: actions/cache/restore@v4
+        with:
+          path: cache
+          key: blocklist-sources-${{ github.run_id }}
+          restore-keys: blocklist-sources-
+
+      - name: Build CDB
+        run: |
+          mkdir -p out
+          python3 dnsdist/dnsdist-blocklist-build \
+            --config dnsdist/blocklists.conf \
+            --out-dir out \
+            --cache cache \
+            --stats out/blocklist-stats.json 2>&1 | tee out/build.log
+
+      - name: Save source cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache
+          key: blocklist-sources-${{ github.run_id }}
+
+      - name: Sanity check
+        env:
+          DNSDIST_BLOCK_CDB: out/blocklist.cdb
+          DNSDIST_ALLOW_CDB: out/allowlist.cdb
+        run: |
+          n=$(jq .blocked_domains out/blocklist-stats.json)
+          echo "blocked domains: $n"
+          if [ "$n" -lt "$MIN_BLOCKED" ]; then
+            echo "::error::only $n blocked domains (minimum $MIN_BLOCKED), not publishing"
+            exit 1
+          fi
+          python3 dnsdist/dnsdist-blocklist-query doubleclick.net google.com | tee check.txt
+          grep -q '^doubleclick.net: BLOCKED' check.txt
+          grep -q '^google.com: ALLOWED' check.txt
+
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd out
+          sha256sum blocklist.cdb allowlist.cdb blocklist-stats.json > SHA256SUMS
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --latest=false \
+              --title "dnsdist CDB (latest build)" \
+              --notes "Built automatically by .github/workflows/build-cdb.yml."
+          fi
+
+          # SHA256SUMS goes up last: a client that downloads while this step is
+          # running sees a checksum mismatch and retries later, instead of
+          # installing a blocklist and allowlist from two different builds.
+          gh release upload "$TAG" blocklist.cdb allowlist.cdb blocklist-stats.json build.log --clobber
+          gh release upload "$TAG" SHA256SUMS --clobber
+
+          gh release edit "$TAG" --notes "Built automatically by .github/workflows/build-cdb.yml.
+
+          - Built: $(date -u '+%Y-%m-%d %H:%M UTC') from ${GITHUB_SHA::7}
+          - Blocked domains: $(jq .blocked_domains blocklist-stats.json)
+          - Allowed domains: $(jq .allowed_domains blocklist-stats.json)
+          - Served from cache: $(jq -r '.served_from_cache | if length == 0 then "none" else join(", ") end' blocklist-stats.json)"

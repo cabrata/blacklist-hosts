@@ -1,0 +1,5 @@
+# Locally curated allowlist entries, applied on top of the fetched lists.
+# format: one domain per line; it un-blocks that name and everything under it.
+
+# See /etc/dnsdist/psl-exceptions.conf for why a whole public suffix is here.
+co.id
