@@ -34,6 +34,9 @@ PSL_URL = "https://publicsuffix.org/list/public_suffix_list.dat"
 PLACEHOLDER = "placeholder.invalid"
 KINDS = ("block", "allow", "blockfile", "allowfile")
 
+# hosts-file boilerplate that must never end up blocked
+JUNK = {"localhost.localdomain"}
+
 
 def log(msg):
     print(msg, file=sys.stderr, flush=True)
@@ -143,7 +146,7 @@ def prepare(args):
             % (len(offenders), ", ".join(offenders)))
     wildcard -= suffixes
 
-    guard = sorted(s for s in suffixes if "." in s and to_ascii(s))
+    guard = sorted({to_ascii(s) for s in suffixes | JUNK if "." in s and to_ascii(s)})
     with open(os.path.join(args.serve_dir, "psl-guard.txt"), "w") as fh:
         fh.write("".join(f"@@||{to_ascii(s)}^\n" for s in guard))
     # cdbgen-rs refuses to write an empty CDB, and dnsdist opens the allow
@@ -152,12 +155,20 @@ def prepare(args):
         fh.write(PLACEHOLDER + "\n")
     with open(os.path.join(args.serve_dir, "allow-wildcard.txt"), "w") as fh:
         fh.write("".join(d + "\n" for d in sorted(wildcard)))
-    for name in ("psl-guard", "placeholder", "allow-wildcard"):
+    # filled in by `rules` after the first cdbgen-rs pass
+    for name in ("rule-guard", "rule-rescue"):
+        path = os.path.join(args.serve_dir, name + ".txt")
+        if not os.path.exists(path):
+            open(path, "w").close()
+    for name in ("psl-guard", "placeholder", "allow-wildcard", "rule-guard", "rule-rescue"):
         toml_sources[name] = f"{args.base_url}/{name}.txt"
+
+    with open(os.path.join(args.serve_dir, "block-sources.json"), "w") as fh:
+        json.dump(block_ids, fh)
 
     out = os.path.abspath(args.out_dir)
     outputs = [
-        (block_ids + ["psl-guard"], os.path.join(out, "blocklist.cdb")),
+        (block_ids + ["psl-guard", "rule-guard", "rule-rescue"], os.path.join(out, "blocklist.cdb")),
         (allow_ids + ["psl-guard", "placeholder"], os.path.join(out, "allowlist.cdb")),
         (["allow-wildcard", "placeholder"], os.path.join(out, "allowlist-wildcard.cdb")),
     ]
@@ -173,6 +184,81 @@ def prepare(args):
     log(f"{len(block_ids)} block sources, {len(allow_ids)} allow sources, "
         f"{len(wildcard)} wildcard allow entries, {len(guard)} public suffixes guarded")
     log(f"wrote {args.toml}")
+
+
+# AdBlock modifiers that still mean "block this domain" at DNS level, and the
+# $dnsrewrite targets that are a block rather than a redirect. Anything else
+# ($badfilter, $dnstype, $ctag, $client, $denyallow, ...) is too expressive for
+# a flat domain set.
+SAFE_MODIFIERS = {"important", "all", "third-party", "3p", "first-party", "1p", "document", "popup"}
+BLOCK_SINKS = {"0.0.0.0", "::", "nxdomain", "refused", "nodata", ""}
+DOMAIN_RE = re.compile(r"^[a-z0-9_-]+(\.[a-z0-9_-]+)+$")
+
+
+def safe_modifiers(mods):
+    for mod in mods.split(","):
+        name, _, value = mod.strip().partition("=")
+        name = name.strip().lstrip("~")
+        if name == "dnsrewrite":
+            target = value.strip().lower().rstrip(".").rsplit(";", 1)[-1]
+            if target in BLOCK_SINKS or target.endswith(".dns.adguard.com"):
+                continue
+            return False
+        if name and name not in SAFE_MODIFIERS:
+            return False
+    return True
+
+
+def rules(args):
+    """Fix the two AdBlock cases cdbgen-rs parses differently from the old
+    builder, using the source bodies cdbgen-rs cached on its first pass:
+      - it ignores $modifiers, so "wykop.pl$badfilter" or
+        "||vg.no.$dnstype=~CNAME" become blocks. Domains that only ever appear
+        in such rules get an @@ rule (rule-guard.txt).
+      - it rejects a leading dot, so ".stape.net^" is lost. Those domains are
+        listed plainly (rule-rescue.txt).
+    """
+    with open(os.path.join(args.serve_dir, "block-sources.json")) as fh:
+        block_ids = json.load(fh)
+
+    listed, unsafe, dotted = set(), set(), set()
+    for name in block_ids:
+        path = os.path.join(args.cdbgen_cache, name + ".body")
+        if not os.path.exists(path):
+            log(f"rules: no cached body for {name}")
+            continue
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line[0] in "#!;[" or line.startswith(("//", "@@")):
+                    continue
+                core, has_mods, mods = line.partition("$")
+                d = core.strip().lstrip("|").rstrip("|").rstrip("^").lower().rstrip(".")
+                if DOMAIN_RE.match(d):
+                    if has_mods and not safe_modifiers(mods):
+                        unsafe.add(d)
+                    else:
+                        listed.add(d)
+                elif d.startswith(".") and DOMAIN_RE.match(d[1:]):
+                    if not has_mods or safe_modifiers(mods):
+                        dotted.add(d[1:])
+                else:
+                    for token in line.split("#", 1)[0].split():
+                        token = token.lower().rstrip(".")
+                        if DOMAIN_RE.match(token):
+                            listed.add(token)
+
+    guard = sorted(unsafe - listed - dotted)
+    # a numeric last label is an IP fragment, not a name
+    rescue = sorted(d for d in dotted - listed if not d.rsplit(".", 1)[-1].isdigit())
+    with open(os.path.join(args.serve_dir, "rule-guard.txt"), "w") as fh:
+        fh.write("".join(f"@@||{d}^\n" for d in guard))
+    with open(os.path.join(args.serve_dir, "rule-rescue.txt"), "w") as fh:
+        fh.write("".join(d + "\n" for d in rescue))
+    log(f"rules: {len(guard)} domains only in unsupported-modifier rules: {', '.join(guard[:20])}"
+        + ("" if len(guard) <= 20 else f" (+{len(guard) - 20} more)"))
+    log(f"rules: {len(rescue)} leading-dot domains rescued: {', '.join(rescue[:20])}"
+        + ("" if len(rescue) <= 20 else f" (+{len(rescue) - 20} more)"))
 
 
 def cdb_read(path):
@@ -259,6 +345,11 @@ def main():
     p.add_argument("--cache", required=True, help="cache directory for the public suffix list")
     p.add_argument("--toml", required=True, help="cdbgen-rs config to write")
     p.set_defaults(func=prepare)
+
+    r = sub.add_parser("rules", help="write rule-guard.txt/rule-rescue.txt from the cdbgen-rs cache")
+    r.add_argument("--serve-dir", required=True)
+    r.add_argument("--cdbgen-cache", default="/var/cache/cdbgen-rs")
+    r.set_defaults(func=rules)
 
     s = sub.add_parser("stats", help="write blocklist-stats.json from the built CDBs")
     s.add_argument("--out-dir", required=True)

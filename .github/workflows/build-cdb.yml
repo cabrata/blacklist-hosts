@@ -101,15 +101,26 @@ jobs:
 
           # exit 3 = a source without cache was unreachable and its output was
           # skipped; don't publish a partial build
-          set +e
-          cdbgen-rs --config "$RUNNER_TEMP/cdbgen.toml" 2>&1 | tee -a out/build.log
-          rc=${PIPESTATUS[0]}
-          set -e
+          cdbgen() {
+            set +e
+            cdbgen-rs --config "$RUNNER_TEMP/cdbgen.toml" 2>&1 | tee -a out/build.log
+            local rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$rc" -ne 0 ]; then
+              kill "$server" || true
+              echo "::error::cdbgen-rs exited with $rc"
+              exit "$rc"
+            fi
+          }
+
+          # pass 1 fills the source cache; `rules` reads it to find the AdBlock
+          # rules cdbgen-rs gets wrong, and pass 2 rebuilds with the fixes
+          # (unchanged sources come back 304 from the cache)
+          cdbgen
+          python3 dnsdist/cdbgen-prepare rules \
+            --serve-dir "$RUNNER_TEMP/serve" --cdbgen-cache "$CDBGEN_CACHE" 2>&1 | tee -a out/build.log
+          cdbgen
           kill "$server" || true
-          if [ "$rc" -ne 0 ]; then
-            echo "::error::cdbgen-rs exited with $rc"
-            exit "$rc"
-          fi
 
           python3 dnsdist/cdbgen-prepare stats \
             --out-dir out --stats out/blocklist-stats.json \
