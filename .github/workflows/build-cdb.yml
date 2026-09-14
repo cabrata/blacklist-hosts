@@ -1,11 +1,13 @@
 name: Build dnsdist CDB
 
-# Compiles dnsdist/blocklists.conf into blocklist.cdb + allowlist.cdb and
-# publishes them as assets of the `cdb-latest` release. The DNS server pulls
+# Compiles dnsdist/blocklists.conf into blocklist.cdb + allowlist.cdb +
+# allowlist-wildcard.cdb with cdbgen-rs (https://github.com/HellDarkK/cdbgen-rs)
+# and publishes them as assets of the `cdb-latest` release. The DNS server pulls
 # them with dnsdist-blocklist-sync.timer.
 #
-# Release assets rather than commits: the blocklist CDB is ~57 MB and changes
-# every day, which would bloat git history fast (GitHub rejects files >100 MB).
+# Release assets rather than commits: the blocklist CDB is tens of MB and
+# changes every day, which would bloat git history fast (GitHub rejects files
+# >100 MB).
 
 on:
   schedule:
@@ -16,6 +18,11 @@ on:
       - 'dnsdist/**'
       - '.github/workflows/build-cdb.yml'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Upload the build to the cdb-latest release'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -27,6 +34,9 @@ concurrency:
 env:
   TAG: cdb-latest
   MIN_BLOCKED: 500000
+  CDBGEN_VERSION: v0.1.5
+  # cdbgen-rs has a fixed cache directory
+  CDBGEN_CACHE: /var/cache/cdbgen-rs
 
 jobs:
   build:
@@ -41,33 +51,79 @@ jobs:
         with:
           sparse-checkout: dnsdist
 
-      - name: Install tinycdb
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq tinycdb
+      - name: Install cdbgen-rs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset="cdbgen-rs-${CDBGEN_VERSION}-x86_64-unknown-linux-musl"
+          cd "$RUNNER_TEMP"
+          gh release download "$CDBGEN_VERSION" -R HellDarkK/cdbgen-rs \
+            -p "$asset" -p "$asset.sha256"
+          sed -i "s#dist/##" "$asset.sha256"
+          sha256sum -c "$asset.sha256"
+          sudo install -m 755 "$asset" /usr/local/bin/cdbgen-rs
+          sudo install -d -o "$(id -u)" -g "$(id -g)" "$CDBGEN_CACHE"
 
-      # The builder falls back to the last good copy when a source is down, so
-      # keep the download cache between runs.
+      # cdbgen-rs falls back to the last good copy when a source is down, so
+      # keep its download cache (and the public suffix list) between runs.
       - name: Restore source cache
         uses: actions/cache/restore@v4
         with:
-          path: cache
-          key: blocklist-sources-${{ github.run_id }}
-          restore-keys: blocklist-sources-
+          path: |
+            /var/cache/cdbgen-rs
+            cache
+          key: cdbgen-sources-${{ github.run_id }}
+          restore-keys: cdbgen-sources-
 
       - name: Build CDB
         run: |
+          set -euo pipefail
           mkdir -p out
-          python3 dnsdist/dnsdist-blocklist-build \
+          python3 dnsdist/cdbgen-prepare prepare \
             --config dnsdist/blocklists.conf \
+            --serve-dir "$RUNNER_TEMP/serve" \
+            --base-url http://127.0.0.1:8900 \
             --out-dir out \
             --cache cache \
-            --stats out/blocklist-stats.json 2>&1 | tee out/build.log
+            --toml "$RUNNER_TEMP/cdbgen.toml" 2>&1 | tee out/build.log
+          cat "$RUNNER_TEMP/cdbgen.toml"
+
+          # local files (local-allow.txt, the public-suffix guard, ...) are
+          # served over http because cdbgen-rs only fetches URLs
+          python3 -m http.server 8900 --bind 127.0.0.1 --directory "$RUNNER_TEMP/serve" \
+            >/dev/null 2>&1 &
+          server=$!
+          for _ in $(seq 50); do
+            curl -fsS -o /dev/null http://127.0.0.1:8900/placeholder.txt && break
+            sleep 0.1
+          done
+
+          # exit 3 = a source without cache was unreachable and its output was
+          # skipped; don't publish a partial build
+          set +e
+          cdbgen-rs --config "$RUNNER_TEMP/cdbgen.toml" 2>&1 | tee -a out/build.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          kill "$server" || true
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::cdbgen-rs exited with $rc"
+            exit "$rc"
+          fi
+
+          python3 dnsdist/cdbgen-prepare stats \
+            --out-dir out --stats out/blocklist-stats.json \
+            --log out/build.log --builder "cdbgen-rs $CDBGEN_VERSION" 2>&1 | tee -a out/build.log
+          cat out/blocklist-stats.json
 
       - name: Save source cache
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: cache
-          key: blocklist-sources-${{ github.run_id }}
+          path: |
+            /var/cache/cdbgen-rs
+            cache
+          key: cdbgen-sources-${{ github.run_id }}
 
       - name: Sanity check
         env:
@@ -87,7 +143,16 @@ jobs:
           # allowlist entries are exact: allowing google.com must not un-block its ad subdomains
           grep -q '^adservice.google.com: BLOCKED' check.txt
 
+      - name: Upload build (not published)
+        if: github.event_name == 'workflow_dispatch' && !inputs.publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdb-build
+          path: out/
+          retention-days: 3
+
       - name: Publish to release
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -107,7 +172,7 @@ jobs:
           gh release upload "$TAG" blocklist.cdb allowlist.cdb allowlist-wildcard.cdb blocklist-stats.json build.log --clobber
           gh release upload "$TAG" SHA256SUMS --clobber
 
-          gh release edit "$TAG" --notes "Built automatically by .github/workflows/build-cdb.yml.
+          gh release edit "$TAG" --notes "Built automatically by .github/workflows/build-cdb.yml with cdbgen-rs ${CDBGEN_VERSION}.
 
           - Built: $(date -u '+%Y-%m-%d %H:%M UTC') from ${GITHUB_SHA::7}
           - Blocked domains: $(jq .blocked_domains blocklist-stats.json)

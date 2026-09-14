@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""
+cdbgen-prepare -- glue between blocklists.conf and cdbgen-rs
+(https://github.com/HellDarkK/cdbgen-rs), which compiles the CDBs in
+GitHub Actions (.github/workflows/build-cdb.yml).
+
+cdbgen-rs only fetches http(s) URLs, stores exact domains and has no notion of
+public suffixes or wildcard allow entries. This fills those gaps without
+touching the CDB itself:
+
+  prepare  turns blocklists.conf into a cdbgen-rs config.toml. Local files are
+           written to --serve-dir, which the workflow serves on 127.0.0.1.
+           - public-suffix guard: every public suffix is emitted as an
+             "@@||suffix^" rule and added to the blocklist and allowlist
+             groups, so cdbgen-rs drops those entries exactly like the old
+             builder did.
+           - "*.example.com" lines from allowfile sources go to
+             allowlist-wildcard.cdb (dnsdist does a suffix lookup on it).
+  stats    counts the records in the finished CDBs and writes the
+           blocklist-stats.json that the workflow and dnsdist-blocklist-sync
+           check.
+"""
+
+import argparse
+import json
+import os
+import re
+import struct
+import sys
+import time
+import urllib.request
+
+PSL_URL = "https://publicsuffix.org/list/public_suffix_list.dat"
+PLACEHOLDER = "placeholder.invalid"
+KINDS = ("block", "allow", "blockfile", "allowfile")
+
+
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+def read_config(path):
+    sources = []
+    with open(path) as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(None, 2)
+            if len(parts) != 3 or parts[0] not in KINDS:
+                log(f"config: ignoring malformed line: {line}")
+                continue
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", parts[1]):
+                raise SystemExit(f"config: source name {parts[1]!r} must match [A-Za-z0-9_-]+")
+            sources.append(tuple(parts))
+    return sources
+
+
+def public_suffixes(cache_dir, exceptions_path):
+    """Fetch the Public Suffix List, falling back to the cached copy."""
+    os.makedirs(cache_dir, exist_ok=True)
+    cached = os.path.join(cache_dir, "public_suffix_list.dat")
+    try:
+        req = urllib.request.Request(PSL_URL, headers={"User-Agent": "cdbgen-prepare/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = resp.read()
+        if not body:
+            raise OSError("empty response")
+        with open(cached + ".new", "wb") as fh:
+            fh.write(body)
+        os.replace(cached + ".new", cached)
+    except Exception as exc:
+        log(f"public suffix list download failed ({exc}), using cache")
+    if not os.path.exists(cached):
+        raise SystemExit("no public suffix list available, refusing to build without the guard")
+
+    out = set()
+    with open(cached, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("//"):
+                out.add(line.lstrip("*.").lstrip("!").lower())
+
+    exempt = set()
+    if os.path.exists(exceptions_path):
+        with open(exceptions_path) as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip().lower()
+                if line:
+                    exempt.add(line)
+    if exempt & out:
+        log("public-suffix guard: exempting " + ", ".join(sorted(exempt & out)))
+    return out - exempt
+
+
+def to_ascii(domain):
+    try:
+        return domain.encode("idna").decode("ascii")
+    except Exception:
+        return None
+
+
+def prepare(args):
+    config_dir = os.path.dirname(os.path.abspath(args.config))
+    exceptions = args.psl_exceptions or os.path.join(config_dir, "psl-exceptions.conf")
+    sources = read_config(args.config)
+    if not sources:
+        raise SystemExit("no sources configured in " + args.config)
+
+    os.makedirs(args.serve_dir, exist_ok=True)
+    suffixes = public_suffixes(args.cache, exceptions)
+
+    toml_sources = {}
+    block_ids, allow_ids = [], []
+    wildcard = set()
+
+    for kind, name, target in sources:
+        if kind in ("block", "allow"):
+            toml_sources[name] = target
+        else:
+            path = os.path.join(config_dir, target)
+            if not os.path.exists(path):
+                log(f"[{name}] local file missing: {path}")
+                continue
+            lines = []
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                for raw in fh:
+                    token = raw.split("#", 1)[0].strip()
+                    if kind == "allowfile" and token.startswith("*."):
+                        d = to_ascii(token[2:].strip(".").lower())
+                        if d:
+                            wildcard.add(d)
+                        continue
+                    lines.append(raw.rstrip("\n"))
+            with open(os.path.join(args.serve_dir, name + ".txt"), "w") as fh:
+                fh.write("\n".join(lines) + "\n")
+            toml_sources[name] = f"{args.base_url}/{name}.txt"
+        (block_ids if kind.startswith("block") else allow_ids).append(name)
+
+    offenders = sorted(wildcard & suffixes)
+    if offenders:
+        log("dropped %d public-suffix wildcard allowlist entries: %s"
+            % (len(offenders), ", ".join(offenders)))
+    wildcard -= suffixes
+
+    guard = sorted(s for s in suffixes if "." in s and to_ascii(s))
+    with open(os.path.join(args.serve_dir, "psl-guard.txt"), "w") as fh:
+        fh.write("".join(f"@@||{to_ascii(s)}^\n" for s in guard))
+    # cdbgen-rs refuses to write an empty CDB, and dnsdist opens the allow
+    # stores unconditionally, so both allowlists always carry this key.
+    with open(os.path.join(args.serve_dir, "placeholder.txt"), "w") as fh:
+        fh.write(PLACEHOLDER + "\n")
+    with open(os.path.join(args.serve_dir, "allow-wildcard.txt"), "w") as fh:
+        fh.write("".join(d + "\n" for d in sorted(wildcard)))
+    for name in ("psl-guard", "placeholder", "allow-wildcard"):
+        toml_sources[name] = f"{args.base_url}/{name}.txt"
+
+    out = os.path.abspath(args.out_dir)
+    outputs = [
+        (block_ids + ["psl-guard"], os.path.join(out, "blocklist.cdb")),
+        (allow_ids + ["psl-guard", "placeholder"], os.path.join(out, "allowlist.cdb")),
+        (["allow-wildcard", "placeholder"], os.path.join(out, "allowlist-wildcard.cdb")),
+    ]
+
+    q = json.dumps  # a JSON string is a valid TOML basic string
+    toml = ["[sources]"]
+    toml += [f"{q(k)} = {q(v)}" for k, v in toml_sources.items()]
+    toml += ["", "[outputs]"]
+    toml += [f"{q(', '.join(ids))} = {q(path)}" for ids, path in outputs]
+    with open(args.toml, "w") as fh:
+        fh.write("\n".join(toml) + "\n")
+
+    log(f"{len(block_ids)} block sources, {len(allow_ids)} allow sources, "
+        f"{len(wildcard)} wildcard allow entries, {len(guard)} public suffixes guarded")
+    log(f"wrote {args.toml}")
+
+
+def cdb_read(path):
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def cdb_count(data):
+    # every record has two slots in its hash table
+    return sum(struct.unpack_from("<I", data, i * 8 + 4)[0] for i in range(256)) // 2
+
+
+def cdb_has(data, key):
+    h = 5381
+    for b in key:
+        h = ((h * 33) ^ b) & 0xFFFFFFFF
+    pos, num = struct.unpack_from("<II", data, (h & 255) * 8)
+    if num == 0:
+        return False
+    slot = (h >> 8) % num
+    for i in range(num):
+        khash, rec = struct.unpack_from("<II", data, pos + ((slot + i) % num) * 8)
+        if rec == 0:
+            return False
+        if khash == h:
+            klen = struct.unpack_from("<I", data, rec)[0]
+            if data[rec + 8:rec + 8 + klen] == key:
+                return True
+    return False
+
+
+def wire(domain):
+    out = bytearray()
+    for lab in domain.split("."):
+        out.append(len(lab))
+        out += lab.encode("ascii")
+    return bytes(out + b"\x00")
+
+
+def stats(args):
+    counts, sizes = {}, {}
+    for name in ("blocklist", "allowlist", "allowlist-wildcard"):
+        path = os.path.join(args.out_dir, name + ".cdb")
+        data = cdb_read(path)
+        n = cdb_count(data)
+        if name != "blocklist" and cdb_has(data, wire(PLACEHOLDER)):
+            n -= 1
+        counts[name], sizes[name] = n, len(data)
+
+    stale = []
+    if args.log and os.path.exists(args.log):
+        with open(args.log, errors="replace") as fh:
+            for line in fh:
+                if "using stale cache" in line:
+                    m = re.search(r"source=(\S+)", line)
+                    if m:
+                        stale.append(m.group(1))
+
+    with open(args.stats, "w") as fh:
+        json.dump({
+            "built_at": int(time.time()),
+            "builder": args.builder,
+            "blocked_domains": counts["blocklist"],
+            "allowed_domains": counts["allowlist"],
+            "allowed_wildcard_domains": counts["allowlist-wildcard"],
+            "blocklist_bytes": sizes["blocklist"],
+            "served_from_cache": sorted(set(stale)),
+        }, fh, indent=2)
+    log(f"blocklist: {counts['blocklist']} domains ({sizes['blocklist']/1048576:.1f} MiB), "
+        f"allowlist: {counts['allowlist']} exact, {counts['allowlist-wildcard']} wildcard")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Prepare cdbgen-rs input and post-build stats")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("prepare", help="write config.toml and the locally served files")
+    p.add_argument("--config", default="dnsdist/blocklists.conf")
+    p.add_argument("--psl-exceptions", default=None,
+                   help="default: psl-exceptions.conf next to --config")
+    p.add_argument("--serve-dir", required=True)
+    p.add_argument("--base-url", required=True, help="where --serve-dir is served over http")
+    p.add_argument("--out-dir", required=True, help="where cdbgen-rs writes the CDBs")
+    p.add_argument("--cache", required=True, help="cache directory for the public suffix list")
+    p.add_argument("--toml", required=True, help="cdbgen-rs config to write")
+    p.set_defaults(func=prepare)
+
+    s = sub.add_parser("stats", help="write blocklist-stats.json from the built CDBs")
+    s.add_argument("--out-dir", required=True)
+    s.add_argument("--stats", required=True)
+    s.add_argument("--log", help="cdbgen-rs log, scanned for stale-cache fallbacks")
+    s.add_argument("--builder", default="cdbgen-rs")
+    s.set_defaults(func=stats)
+
+    args = ap.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
