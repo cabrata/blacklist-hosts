@@ -16,6 +16,7 @@ import sys
 # installed (build-cdb.yml, dnsdist-blocklist-sync).
 BLOCK = os.environ.get("DNSDIST_BLOCK_CDB", "/etc/dnsdist/blocklist.cdb")
 ALLOW = os.environ.get("DNSDIST_ALLOW_CDB", "/etc/dnsdist/allowlist.cdb")
+ALLOW_WILDCARD = os.environ.get("DNSDIST_ALLOW_WILDCARD_CDB", "/etc/dnsdist/allowlist-wildcard.cdb")
 
 
 def cdb_get(path, key):
@@ -75,7 +76,15 @@ def main():
         sys.exit("usage: dnsdist-blocklist-query <domain> [domain...]")
 
     for domain in sys.argv[1:]:
-        a_match, a_val, a_err = walk(domain, ALLOW)
+        name = domain.strip(".").lower()
+        # Plain allowlist entries are exact (KeyValueLookupKeyQName in
+        # dnsdist.conf); only wildcard entries cover subdomains.
+        a_val, a_err = cdb_get(ALLOW, wire(name))
+        a_match = name if a_val is not None else None
+        if a_match is None and not a_err:
+            a_match, a_val, a_err = walk(name, ALLOW_WILDCARD)
+            if a_match:
+                a_match = "*." + a_match
         b_match, b_val, b_err = walk(domain, BLOCK)
 
         if a_err or b_err:

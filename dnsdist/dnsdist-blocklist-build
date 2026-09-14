@@ -274,6 +274,27 @@ def public_suffixes(refresh=True):
     return out - exempt
 
 
+def split_wildcards(text):
+    """Pull "*.example.com" lines out of a local allowlist file.
+
+    Plain allowlist entries are exact -- "google.com" un-blocks google.com and
+    nothing under it, so adservice.google.com stays blocked. A wildcard entry is
+    the explicit way to un-block a name and everything beneath it. Only local
+    files get this; fetched whitelists are always treated as exact.
+    Returns (remaining text, set of wildcard domains).
+    """
+    rest, wild = [], set()
+    for raw in text.splitlines():
+        token = raw.split("#", 1)[0].strip()
+        if token.startswith("*."):
+            d = normalise(token[2:])
+            if d:
+                wild.add(d)
+            continue
+        rest.append(raw)
+    return "\n".join(rest), wild
+
+
 def collapse(domains):
     """Drop entries already covered by a shorter parent, since dnsdist does a
     suffix lookup. Shrinks the CDB substantially on hosts-style lists."""
@@ -364,12 +385,13 @@ def main():
     if not sources:
         raise SystemExit("no sources configured in " + args.config)
 
-    block, allow = {}, {}
+    block, allow, allow_wild = {}, {}, {}
     per_list = {}
     stale = []
 
     for kind, name, target in sources:
         t0 = time.time()
+        wild = set()
         if kind in ("blockfile", "allowfile"):
             target = os.path.join(config_dir, target)   # no-op for absolute paths
             if not os.path.exists(target):
@@ -377,6 +399,8 @@ def main():
                 continue
             text = open(target, encoding="utf-8", errors="replace").read()
             cached = False
+            if kind == "allowfile":
+                text, wild = split_wildcards(text)
         else:
             text, cached = fetch(name, target, refresh=not args.no_download)
             if text is None:
@@ -393,8 +417,12 @@ def main():
             block.setdefault(d, name)
         for d in a:
             allow.setdefault(d, name)
-        per_list[name] = {"block": len(b), "allow": len(a), "unparsed": skipped}
-        log(f"[{name}] block={len(b)} allow={len(a)} unparsed={skipped} ({time.time()-t0:.1f}s)")
+        for d in wild:
+            allow_wild.setdefault(d, name)
+        per_list[name] = {"block": len(b), "allow": len(a), "allow_wildcard": len(wild),
+                          "unparsed": skipped}
+        log(f"[{name}] block={len(b)} allow={len(a)} allow_wildcard={len(wild)} "
+            f"unparsed={skipped} ({time.time()-t0:.1f}s)")
 
     log("")
     raw_block = len(block)
@@ -403,34 +431,38 @@ def main():
     # The public suffix guard, needed on both sides. Computed once.
     suffixes = public_suffixes(refresh=not args.no_download)
 
-    # allowlist public-suffix guard. This has to run before the removal below:
-    # an allow entry beats the blocklist for everything under it, so a single
-    # entry like "co.id" or "web.app" would quietly un-block every blocked name
-    # on that whole suffix. Published whitelists do carry them -- TrustPositif's
-    # lists "co.id" outright -- and the damage is invisible once applied.
-    if suffixes and allow:
-        offenders = sorted(d for d in allow if d in suffixes)
+    # allowlist public-suffix guard. This has to run before the removal below.
+    # It matters most for wildcard entries: "*.web.app" would quietly un-block
+    # every blocked name on that whole platform. Exact entries for a public
+    # suffix are useless rather than harmful, and are dropped too so that
+    # published whitelists (TrustPositif lists "co.id" outright) stay tidy.
+    for kind_label, store in (("allowlist", allow), ("wildcard allowlist", allow_wild)):
+        if not (suffixes and store):
+            continue
+        offenders = sorted(d for d in store if d in suffixes)
         for d in offenders:
-            del allow[d]
+            del store[d]
         if offenders:
             shown = ", ".join(offenders[:12])
             more = "" if len(offenders) <= 12 else " (+%d more)" % (len(offenders) - 12)
-            log("dropped %d public-suffix allowlist entries: %s%s"
-                % (len(offenders), shown, more))
+            log("dropped %d public-suffix %s entries: %s%s"
+                % (len(offenders), kind_label, shown, more))
 
-    # An allowlist entry beats a blocklist entry for that name and everything
+    # A wildcard allow entry beats the blocklist for that name and everything
     # under it, so drop the covered blocklist entries at build time too.
-    if allow:
-        allow_set = set(allow)
+    # Exact allow entries are deliberately NOT applied here: deleting a blocked
+    # "example.com" because "example.com" is allowlisted would also un-block
+    # every subdomain it covers. dnsdist applies exact entries at query time.
+    if allow_wild:
         dropped = 0
         for d in list(block):
             parts = d.split(".")
             for i in range(len(parts) - 1):
-                if ".".join(parts[i:]) in allow_set:
+                if ".".join(parts[i:]) in allow_wild:
                     del block[d]
                     dropped += 1
                     break
-        log(f"allowlist removed {dropped} blocklist entries")
+        log(f"wildcard allowlist removed {dropped} blocklist entries")
 
     # Block side. Must run before collapse: collapse keeps the shortest parent,
     # so leaving a public suffix in would delete every specific subdomain it
@@ -452,7 +484,7 @@ def main():
 
     log("")
     log(f"blocklist: {raw_block} unique -> {len(block)} after reduction")
-    log(f"allowlist: {raw_allow} unique")
+    log(f"allowlist: {raw_allow} unique (exact), {len(allow_wild)} wildcard")
 
     if not block:
         raise SystemExit("refusing to write an empty blocklist")
@@ -466,8 +498,11 @@ def main():
     bsize = write_cdb(bpath, block)
     # dnsdist opens the allow CDB unconditionally, so always emit a valid file.
     asize = write_cdb(apath, allow or {"placeholder.invalid": "none"})
+    wpath = os.path.join(args.out_dir, "allowlist-wildcard.cdb")
+    wsize = write_cdb(wpath, allow_wild or {"placeholder.invalid": "none"})
     log(f"wrote {bpath} ({bsize/1048576:.1f} MiB)")
     log(f"wrote {apath} ({asize/1024:.1f} KiB)")
+    log(f"wrote {wpath} ({wsize/1024:.1f} KiB)")
 
     os.makedirs(os.path.dirname(os.path.abspath(args.stats)), exist_ok=True)
     with open(args.stats, "w") as fh:
@@ -475,6 +510,7 @@ def main():
             "built_at": int(time.time()),
             "blocked_domains": len(block),
             "allowed_domains": len(allow),
+            "allowed_wildcard_domains": len(allow_wild),
             "blocklist_bytes": bsize,
             "lists": per_list,
             "served_from_cache": stale,

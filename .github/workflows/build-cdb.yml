@@ -73,6 +73,7 @@ jobs:
         env:
           DNSDIST_BLOCK_CDB: out/blocklist.cdb
           DNSDIST_ALLOW_CDB: out/allowlist.cdb
+          DNSDIST_ALLOW_WILDCARD_CDB: out/allowlist-wildcard.cdb
         run: |
           n=$(jq .blocked_domains out/blocklist-stats.json)
           echo "blocked domains: $n"
@@ -80,9 +81,11 @@ jobs:
             echo "::error::only $n blocked domains (minimum $MIN_BLOCKED), not publishing"
             exit 1
           fi
-          python3 dnsdist/dnsdist-blocklist-query doubleclick.net google.com | tee check.txt
+          python3 dnsdist/dnsdist-blocklist-query doubleclick.net google.com adservice.google.com | tee check.txt
           grep -q '^doubleclick.net: BLOCKED' check.txt
           grep -q '^google.com: ALLOWED' check.txt
+          # allowlist entries are exact: allowing google.com must not un-block its ad subdomains
+          grep -q '^adservice.google.com: BLOCKED' check.txt
 
       - name: Publish to release
         env:
@@ -90,7 +93,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           cd out
-          sha256sum blocklist.cdb allowlist.cdb blocklist-stats.json > SHA256SUMS
+          sha256sum blocklist.cdb allowlist.cdb allowlist-wildcard.cdb blocklist-stats.json > SHA256SUMS
 
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --latest=false \
@@ -101,7 +104,7 @@ jobs:
           # SHA256SUMS goes up last: a client that downloads while this step is
           # running sees a checksum mismatch and retries later, instead of
           # installing a blocklist and allowlist from two different builds.
-          gh release upload "$TAG" blocklist.cdb allowlist.cdb blocklist-stats.json build.log --clobber
+          gh release upload "$TAG" blocklist.cdb allowlist.cdb allowlist-wildcard.cdb blocklist-stats.json build.log --clobber
           gh release upload "$TAG" SHA256SUMS --clobber
 
           gh release edit "$TAG" --notes "Built automatically by .github/workflows/build-cdb.yml.

@@ -1,5 +1,12 @@
 # Locally curated allowlist entries, applied on top of the fetched lists.
-# format: one domain per line; it un-blocks that name and everything under it.
+#
+# format: one domain per line.
+#   example.com     exact -- un-blocks example.com only; ads.example.com and
+#                   every other blocked subdomain stay blocked
+#   *.example.com   wildcard -- un-blocks example.com and everything under it
+#
+# Wildcards only work in local files like this one; fetched whitelists are
+# always exact.
 
-# See /etc/dnsdist/psl-exceptions.conf for why a whole public suffix is here.
-co.id
+# See psl-exceptions.conf for why a whole public suffix is here.
+*.co.id

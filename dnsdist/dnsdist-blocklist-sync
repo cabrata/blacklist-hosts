@@ -23,12 +23,12 @@ fetch() {
 
 fetch SHA256SUMS
 
-if (cd "$OUT" && grep -E ' (blocklist|allowlist)\.cdb$' "$work/SHA256SUMS" | sha256sum --quiet -c -) >/dev/null 2>&1; then
+if (cd "$OUT" && grep -E ' (blocklist|allowlist|allowlist-wildcard)\.cdb$' "$work/SHA256SUMS" | sha256sum --quiet -c -) >/dev/null 2>&1; then
     echo "already up to date"
     exit 0
 fi
 
-for f in blocklist.cdb allowlist.cdb blocklist-stats.json; do
+for f in blocklist.cdb allowlist.cdb allowlist-wildcard.cdb blocklist-stats.json; do
     fetch "$f"
 done
 
@@ -45,14 +45,17 @@ if [ "$blocked" -lt "$MIN_BLOCKED" ]; then
 fi
 
 check=$(DNSDIST_BLOCK_CDB="$work/blocklist.cdb" DNSDIST_ALLOW_CDB="$work/allowlist.cdb" \
-    dnsdist-blocklist-query doubleclick.net google.com)
-if ! grep -q '^doubleclick.net: BLOCKED' <<<"$check" || ! grep -q '^google.com: ALLOWED' <<<"$check"; then
+    DNSDIST_ALLOW_WILDCARD_CDB="$work/allowlist-wildcard.cdb" \
+    dnsdist-blocklist-query doubleclick.net google.com adservice.google.com)
+if ! grep -q '^doubleclick.net: BLOCKED' <<<"$check" \
+   || ! grep -q '^google.com: ALLOWED' <<<"$check" \
+   || ! grep -q '^adservice.google.com: BLOCKED' <<<"$check"; then
     printf 'downloaded CDB failed the lookup check, not installing:\n%s\n' "$check" >&2
     exit 1
 fi
 
 # Stage next to the target so the rename is atomic.
-for f in allowlist.cdb blocklist.cdb; do
+for f in allowlist-wildcard.cdb allowlist.cdb blocklist.cdb; do
     install -m 644 "$work/$f" "$OUT/.$f.sync"
     mv -f "$OUT/.$f.sync" "$OUT/$f"
 done
