@@ -16,6 +16,13 @@ touching the CDB itself:
              builder did.
            - "*.example.com" lines from allowfile sources go to
              allowlist-wildcard.cdb (dnsdist does a suffix lookup on it).
+  label    cdbgen-rs writes every record with an empty value. dnsdist only
+           checks that a key exists, but dns.caliph.dev reads the value as
+           the source list name to sort blocked domains into categories and
+           to say which list blocked a name -- with empty values everything
+           showed up as "Ads & trackers". This fills each value in with the
+           first source (in blocklists.conf order) that lists the domain,
+           like the old dnsdist-blocklist-build did, and rewrites the CDBs.
   stats    counts the records in the finished CDBs and writes the
            blocklist-stats.json that the workflow and dnsdist-blocklist-sync
            check.
@@ -115,7 +122,7 @@ def prepare(args):
 
     toml_sources = {}
     block_ids, allow_ids = [], []
-    wildcard = set()
+    wildcard = {}
 
     for kind, name, target in sources:
         if kind in ("block", "allow"):
@@ -132,7 +139,7 @@ def prepare(args):
                     if kind == "allowfile" and token.startswith("*."):
                         d = to_ascii(token[2:].strip(".").lower())
                         if d:
-                            wildcard.add(d)
+                            wildcard.setdefault(d, name)
                         continue
                     lines.append(raw.rstrip("\n"))
             with open(os.path.join(args.serve_dir, name + ".txt"), "w") as fh:
@@ -140,11 +147,12 @@ def prepare(args):
             toml_sources[name] = f"{args.base_url}/{name}.txt"
         (block_ids if kind.startswith("block") else allow_ids).append(name)
 
-    offenders = sorted(wildcard & suffixes)
+    offenders = sorted(wildcard.keys() & suffixes)
     if offenders:
         log("dropped %d public-suffix wildcard allowlist entries: %s"
             % (len(offenders), ", ".join(offenders)))
-    wildcard -= suffixes
+    for d in offenders:
+        del wildcard[d]
 
     guard = sorted({to_ascii(s) for s in suffixes | JUNK if "." in s and to_ascii(s)})
     with open(os.path.join(args.serve_dir, "psl-guard.txt"), "w") as fh:
@@ -165,6 +173,8 @@ def prepare(args):
 
     with open(os.path.join(args.serve_dir, "block-sources.json"), "w") as fh:
         json.dump(block_ids, fh)
+    with open(os.path.join(args.serve_dir, "label-sources.json"), "w") as fh:
+        json.dump({"block": block_ids, "allow": allow_ids, "wildcard": wildcard}, fh)
 
     out = os.path.abspath(args.out_dir)
     outputs = [
@@ -261,6 +271,144 @@ def rules(args):
         + ("" if len(rescue) <= 20 else f" (+{len(rescue) - 20} more)"))
 
 
+HOSTS_IPS = {"0.0.0.0", "127.0.0.1", "::", "::1", "0", "127.0.0.2"}
+
+
+def candidates(raw):
+    """Every domain a blocklist line could have contributed. Deliberately
+    loose: it is only used to attribute keys that are already in the CDB, so a
+    name matched here but not by cdbgen-rs simply labels nothing."""
+    line = raw.strip()
+    if not line or line[0] in "#!;[" or line.startswith(("//", "@@")):
+        return
+    if any(m in line for m in ("##", "#@#", "#%#", "#$#", "#?#")):
+        return
+    core, has_mods, mods = line.partition("$")
+    if has_mods or "^" in core or core.startswith("|"):
+        if has_mods and not safe_modifiers(mods):
+            return
+        tokens = [core.strip().lstrip("|").rstrip("|").rstrip("^")]
+    else:
+        tokens = line.split("#", 1)[0].replace(",", " ").split()
+        if len(tokens) >= 2 and tokens[0] in HOSTS_IPS:
+            tokens = tokens[1:]
+    for token in tokens:
+        d = token.strip().lower().strip(".")
+        if d.startswith("*."):
+            d = d[2:]
+        if not d.isascii():
+            d = to_ascii(d) or ""
+        if DOMAIN_RE.match(d):
+            yield d
+
+
+def cdb_records(data):
+    """(key, value) for every record, in file order."""
+    end = min(struct.unpack_from("<I", data, i * 8)[0] for i in range(256))
+    pos = 2048
+    while pos < end:
+        klen, vlen = struct.unpack_from("<II", data, pos)
+        yield data[pos + 8:pos + 8 + klen], data[pos + 8 + klen:pos + 8 + klen + vlen]
+        pos += 8 + klen + vlen
+
+
+def cdb_hash(key):
+    h = 5381
+    for b in key:
+        h = ((h * 33) ^ b) & 0xFFFFFFFF
+    return h
+
+
+def cdb_write(path, records):
+    """Write a djb CDB through a temp file and atomic rename."""
+    tables = [[] for _ in range(256)]
+    tmp = path + ".label"
+    with open(tmp, "wb") as fh:
+        fh.write(b"\0" * 2048)
+        pos = 2048
+        for key, value in records:
+            h = cdb_hash(key)
+            tables[h & 255].append((h, pos))
+            fh.write(struct.pack("<II", len(key), len(value)) + key + value)
+            pos += 8 + len(key) + len(value)
+        header = bytearray()
+        for entries in tables:
+            n = len(entries) * 2
+            slots = [(0, 0)] * n
+            for h, rec in entries:
+                i = (h >> 8) % n
+                while slots[i][1]:
+                    i = (i + 1) % n
+                slots[i] = (h, rec)
+            header += struct.pack("<II", pos, n)
+            fh.write(b"".join(struct.pack("<II", *s) for s in slots))
+            pos += n * 8
+        if pos >= 1 << 32:
+            raise SystemExit(f"{path}: too large for CDB")
+        fh.seek(0)
+        fh.write(header)
+    os.replace(tmp, path)
+
+
+def text_name(key):
+    labels, i = [], 0
+    while i < len(key) and key[i]:
+        labels.append(key[i + 1:i + 1 + key[i]].decode("ascii", "replace"))
+        i += 1 + key[i]
+    return ".".join(labels)
+
+
+def label_cdb(path, source_ids, cdbgen_cache, fixed=None, fallback=b""):
+    data = cdb_read(path)
+    records = [(key, value) for key, value in cdb_records(data)]
+    del data
+    owner = {text_name(key): None for key, _ in records}
+    for d, name in (fixed or {}).items():
+        if d in owner:
+            owner[d] = name
+    for name in source_ids:
+        body = os.path.join(cdbgen_cache, name + ".body")
+        if not os.path.exists(body):
+            log(f"label: no cached body for {name}")
+            continue
+        with open(body, encoding="utf-8", errors="replace") as fh:
+            for raw in fh:
+                for d in candidates(raw):
+                    if owner.get(d, "") is None:
+                        owner[d] = name
+
+    labelled, per_source = 0, {}
+    out = []
+    for key, value in records:
+        name = owner[text_name(key)]
+        if name is not None:
+            value = name.encode("ascii")
+            labelled += 1
+            per_source[name] = per_source.get(name, 0) + 1
+        elif not value:
+            value = fallback
+        out.append((key, value))
+    cdb_write(path, out)
+    missing = len(records) - labelled
+    log(f"label: {os.path.basename(path)}: {labelled} of {len(records)} records labelled"
+        + (f", {missing} left as {fallback.decode() or 'empty'}" if missing else ""))
+    for name, n in sorted(per_source.items(), key=lambda kv: -kv[1]):
+        log(f"label:   {n:8d}  {name}")
+
+
+def label(args):
+    with open(os.path.join(args.serve_dir, "label-sources.json")) as fh:
+        src = json.load(fh)
+    # rule-rescue only ever holds leading-dot names from the block sources,
+    # which candidates() already matches, so it is a last resort here.
+    label_cdb(os.path.join(args.out_dir, "blocklist.cdb"),
+              src["block"] + ["rule-rescue"], args.cdbgen_cache)
+    label_cdb(os.path.join(args.out_dir, "allowlist.cdb"), src["allow"], args.cdbgen_cache,
+              fixed={PLACEHOLDER: "none"})
+    label_cdb(os.path.join(args.out_dir, "allowlist-wildcard.cdb"), [], args.cdbgen_cache,
+              fixed=dict(src["wildcard"], **{PLACEHOLDER: "none"}))
+
+
 def cdb_read(path):
     with open(path, "rb") as fh:
         return fh.read()
@@ -351,7 +499,13 @@ def main():
     r.add_argument("--cdbgen-cache", default="/var/cache/cdbgen-rs")
     r.set_defaults(func=rules)
 
-    s = sub.add_parser("stats", help="write blocklist-stats.json from the built CDBs")
+    lb = sub.add_parser("label", help="fill CDB values with the source list name")
+    lb.add_argument("--serve-dir", required=True)
+    lb.add_argument("--out-dir", required=True, help="where cdbgen-rs wrote the CDBs")
+    lb.add_argument("--cdbgen-cache", default="/var/cache/cdbgen-rs")
+    lb.set_defaults(func=label)
+
+    s = sub.add_parser("stats",help="write blocklist-stats.json from the built CDBs")
     s.add_argument("--out-dir", required=True)
     s.add_argument("--stats", required=True)
     s.add_argument("--log", help="cdbgen-rs log, scanned for stale-cache fallbacks")

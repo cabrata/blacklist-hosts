@@ -122,6 +122,11 @@ jobs:
           cdbgen
           kill "$server" || true
 
+          # cdbgen-rs leaves every value empty; the dns.caliph.dev categories
+          # and "blocked by list X" read the source list name from it
+          python3 dnsdist/cdbgen-prepare label \
+            --serve-dir "$RUNNER_TEMP/serve" --out-dir out --cdbgen-cache "$CDBGEN_CACHE" 2>&1 | tee -a out/build.log
+
           python3 dnsdist/cdbgen-prepare stats \
             --out-dir out --stats out/blocklist-stats.json \
             --log out/build.log --builder "cdbgen-rs $CDBGEN_VERSION" 2>&1 | tee -a out/build.log
