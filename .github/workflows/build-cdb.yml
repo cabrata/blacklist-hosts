@@ -11,7 +11,7 @@ name: Build dnsdist CDB
 
 on:
   schedule:
-    - cron: '30 17 * * *'   # 00:30 WIB
+    - cron: '0 * * * *'   # 00:30 WIB
   push:
     branches: [main]
     paths:
