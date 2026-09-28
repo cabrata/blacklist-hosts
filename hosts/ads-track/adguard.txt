@@ -1,9 +1,9 @@
 !
 ! Title: AdGuard DNS filter
 ! Description: List composed of several filters (AdGuard Base filter, Social Media filter, Tracking Protection filter, Mobile Ads filter, EasyList and EasyPrivacy) and simplified specifically to be better compatible with DNS-level ad blocking
-! Version: 1.0.81.9
+! Version: 1.0.81.12
 ! Homepage: https://github.com/AdguardTeam/AdguardSDNSFilter
-! Last modified: 2026-09-28T10:20:16.141Z
+! Last modified: 2026-09-28T16:21:47.415Z
 !
 ! Compiled by @adguard/hostlist-compiler v2.1.0
 !
@@ -7748,6 +7748,7 @@ vkcdnservice.appspot.com^
 ||two.fsylr.com^
 ||ad.juksy.com^
 ||ads.tvb.com^
+||beeparentdo.com^
 ||balamutka.link^
 ||nevalyashka.link^
 ||aj2663.bid^
@@ -115304,6 +115305,7 @@ dlsdk.appsflyer.com^
 ||7142f2be39.com^
 ||71b2d37f74.com^
 ||71df446534.com^
+||71n6i7mrb7r8y796ugbtpq5lv5y5rv.rest^
 ||71ybxtqp3ci94tyc9x7.cfd^
 ||722pod.net^
 ||7246ae5b07.com^
@@ -115943,6 +115945,7 @@ dlsdk.appsflyer.com^
 ||acltickza.in^
 ||acme.vidox.net^
 ||acnodesbathmat.cyou^
+||acolytelwo.qpon^
 ||acopiclhb.qpon^
 ||acoreaaxweed.qpon^
 ||acornsyerk.cfd^
@@ -115968,6 +115971,7 @@ dlsdk.appsflyer.com^
 ||acrossexterminatorfoggy.com^
 ||acsbypynvfkxn.online^
 ||acscdn.com^
+||acsuawwovvstt.space^
 ||actedmnesic.qpon^
 ||actglimpse.com^
 ||actifyctrltorn.cyou^
@@ -116769,6 +116773,7 @@ dlsdk.appsflyer.com^
 ||aimpharynxcopepod.cyou^
 ||aimportfoliosquid.com^
 ||aimukreegee.net^
+||aindhfxrmmuue.site^
 ||ainhumdon.qpon^
 ||ainouzaudre.net^
 ||ainpterinengland.cfd^
@@ -117204,6 +117209,7 @@ dlsdk.appsflyer.com^
 ||aneareddossmen.qpon^
 ||aneguftwymwfg.store^
 ||anemiachoky.com^
+||anemicdename.cyou^
 ||anergiamabble.shop^
 ||anewfeedliberty.com^
 ||angarebkikuyu.shop^
@@ -117822,6 +117828,7 @@ dlsdk.appsflyer.com^
 ||atsg.me^
 ||atsnisdwrubdu.space^
 ||atswfbonkmkrw.website^
+||attaccagrimsirintune.cfd^
 ||attacheatableoverlabor.com^
 ||attached-spare.com^
 ||attachedglorysticks.com^
@@ -118077,6 +118084,7 @@ dlsdk.appsflyer.com^
 ||awnlesscashboy.cfd^
 ||awnypearch.com^
 ||awokenreeshle.shop^
+||awokespiny.qpon^
 ||awozdcvzjgbnh.online^
 ||awpcrpu.com^
 ||awpmzlkylwrnb.space^
@@ -118954,6 +118962,7 @@ dlsdk.appsflyer.com^
 ||bhfrnzxxcxhbn.store^
 ||bhfrttttyyruo.store^
 ||bhheuhvupxzpk.space^
+||bhhhctxwaztth.space^
 ||bhhvaweewcrdj.space^
 ||bhizbekkstvnr.online^
 ||bhjkpnfsgejvo.com^
@@ -119691,6 +119700,7 @@ dlsdk.appsflyer.com^
 ||brainsoptionsshirt.com^
 ||braiseparvisemezuzas.cyou^
 ||brakiefissive.com^
+||bramtammyplanish.cyou^
 ||brand-display.com^
 ||brand.net^
 ||brandaffinity.net^
@@ -121579,6 +121589,7 @@ dlsdk.appsflyer.com^
 ||collowhypoxis.com^
 ||collstatute.cyou^
 ||colobinresever.com^
+||cologsassholebribees.cyou^
 ||colonexpenditure.com^
 ||colonistnobilityheroic.com^
 ||colorfuleconomy.pro^
@@ -122059,6 +122070,7 @@ dlsdk.appsflyer.com^
 ||cpvlyqkpyfsns.store^
 ||cpx24.com^
 ||cpxinteractive.com^
+||cqbxk55j7pxnl69c2q.cfd^
 ||cqcaoltqtarmz.space^
 ||cqcpazetvhaso.website^
 ||cqcsvgiryffsf.online^
@@ -123739,6 +123751,7 @@ dlsdk.appsflyer.com^
 ||djxceuubnxeuh.space^
 ||djxh1.com^
 ||dkattqczpqtsi.site^
+||dkbplndtgstzj.site^
 ||dkcarxqotiviv.website^
 ||dkenfoazc.in^
 ||dkeoghhmu.in^
@@ -123836,6 +123849,7 @@ dlsdk.appsflyer.com^
 ||dnllyhkrumiui.website^
 ||dnonznoautndl.online^
 ||dnosyvngti.com^
+||dnpvftwodustw.site^
 ||dnqftnryxfngg.website^
 ||dnqmuubtrodvi.site^
 ||dnrplhluklgsh.site^
@@ -125049,6 +125063,7 @@ dlsdk.appsflyer.com^
 ||eelwgpubhnjxv.website^
 ||eemeresuovsbe.online^
 ||eenyxwxaeelzx.online^
+||eepidlweakvhd.site^
 ||eepngjlpomkcr.space^
 ||eeptoabs.com^
 ||eeqjdgqbvpbjw.site^
@@ -125920,6 +125935,7 @@ dlsdk.appsflyer.com^
 ||eusmdates.com^
 ||eussiyvfjpqqc.site^
 ||eussownwpyxdw.online^
+||eustmtegiln.com^
 ||eutgbfzcrepne.online^
 ||euthymyoglala.cyou^
 ||euvdyv.com^
@@ -126655,6 +126671,7 @@ dlsdk.appsflyer.com^
 ||ffpmlheychmat.store^
 ||ffponnvhnttoh.online^
 ||ffqumyjlunpga.online^
+||ffsbgmrqbzzzp.website^
 ||ffskgnxhhnqaf.website^
 ||ffskhqycasekb.website^
 ||ffsrxeamzwtsl.website^
@@ -127764,10 +127781,12 @@ dlsdk.appsflyer.com^
 ||fzanswueeajvf.online^
 ||fzaybjewoyyrz.store^
 ||fzcknngqwit4k6gkbt.cfd^
+||fzdeifies.qpon^
 ||fzdimble.com^
 ||fzdwntsrbrodu.space^
 ||fzev75-rtbix.top^
 ||fzfzmmijhsmpd.online^
+||fzggtumloxrrp.online^
 ||fzhlcpylcgicc.online^
 ||fzibfuaw.in^
 ||fzioggf.com^
@@ -128739,6 +128758,7 @@ dlsdk.appsflyer.com^
 ||goxuptilts.cyou^
 ||gpawrschgrqzb.space^
 ||gpbemgixdkodl.com^
+||gpegidmhiofd.in^
 ||gpfihqkvbcifz.space^
 ||gpfrmhkgcruue.online^
 ||gphljspaprvsl.online^
@@ -129964,6 +129984,7 @@ dlsdk.appsflyer.com^
 ||hldvxmevufwlf.online^
 ||hldziakitxudy.site^
 ||hlgdxdfwnqqug.online^
+||hlgmrrzoeayw.com^
 ||hlgqbkgvfvelf.store^
 ||hlinit.com^
 ||hljdjkifipczx.online^
@@ -130493,9 +130514,11 @@ dlsdk.appsflyer.com^
 ||hvuuvjdlqdtwo.space^
 ||hvvaoxrjglkhd.online^
 ||hvvmslekmyomk.site^
+||hvvmxibuvscgx.com^
 ||hvwbspbolgupm.site^
 ||hvwoeavjjemhq.site^
 ||hvwsecjtqnbkv.online^
+||hvwsqpcnnee.com^
 ||hvxafwbxwqm.com^
 ||hvysnssofi.com^
 ||hw1umzhov6q7i8k2vgj1w73b.cfd^
@@ -131674,6 +131697,7 @@ dlsdk.appsflyer.com^
 ||issuerswalkist.qpon^
 ||istlnkbn.com^
 ||iswgoktjsknme.space^
+||isycmwwmqtylt.space^
 ||isyfhktqiiccy.site^
 ||isypmogfhabmp.space^
 ||iszbbkcqwfnqn.space^
@@ -131928,6 +131952,7 @@ dlsdk.appsflyer.com^
 ||jahwgcaskcxdl.space^
 ||jailermoths.cyou^
 ||jainapedicle.cyou^
+||jaivocmmtadxy.com^
 ||jajsigbzrpntp.website^
 ||jakbhzbwczsho.online^
 ||jakebizarreexclusively.com^
@@ -132024,6 +132049,7 @@ dlsdk.appsflyer.com^
 ||jbtzenvvhqaaf.website^
 ||jbuegeejecfca.website^
 ||jbvoejzmaqmjw.top^
+||jbvoejzvkmyaq.top^
 ||jbvoejzvkmyzj.top^
 ||jbvonjwdczupq.site^
 ||jbvtdmftbemaf.space^
@@ -132184,6 +132210,7 @@ dlsdk.appsflyer.com^
 ||jgcakixnbnyng.website^
 ||jgchbqqejehmo.site^
 ||jgieklrrgjcjp.site^
+||jgixqmqacjzkk.site^
 ||jgjmetqidmbec.website^
 ||jgkgqvxmnrxjb.space^
 ||jgkzxfdcmdhel.site^
@@ -133210,6 +133237,7 @@ dlsdk.appsflyer.com^
 ||kgguxnrwpqoif.site^
 ||kgioxibrrjqep.online^
 ||kgiqptmzhkidx.website^
+||kgjbjnfgnnwea.online^
 ||kglxixzitjbri.space^
 ||kgmikoqcisnib.site^
 ||kgmipfngmsypp.online^
@@ -133370,6 +133398,7 @@ dlsdk.appsflyer.com^
 ||kjpwujecngtzm.online^
 ||kjrastwgntzqe.website^
 ||kjtipyiisrgig.site^
+||kjwbjnxpc.com^
 ||kkaaqwdbgxfkj.site^
 ||kkczadzgl.com^
 ||kkdtsmnnxvirs.site^
@@ -134188,6 +134217,7 @@ dlsdk.appsflyer.com^
 ||lduzoqqgmfnhv.space^
 ||ldvkmzygcoido.site^
 ||ldwfhkykiilho.online^
+||ldwqexkxritii.com^
 ||ldxgnxqtowtum.site^
 ||ldyztceolxrmy.space^
 ||ldzeykgjjbvmqh.com^
@@ -135195,6 +135225,7 @@ dlsdk.appsflyer.com^
 ||lusbvzzcnfbeo.site^
 ||lusfnxbxlkyip.site^
 ||lushcrush.com^
+||lushingriced.cyou^
 ||lusjjhdzbrlzu.online^
 ||lust-goddess-game.online^
 ||lustp.com^
@@ -136983,6 +137014,7 @@ dlsdk.appsflyer.com^
 ||mxkmgxxt9921xp18qipi62lcb.cfd^
 ||mxlqgplenjdrc.site^
 ||mxlun.com^
+||mxmjrbudtaipb.website^
 ||mxnlbdnvrkwht.website^
 ||mxnmjvipn.com^
 ||mxnsdgojduycx.online^
@@ -137059,6 +137091,7 @@ dlsdk.appsflyer.com^
 ||mysoreaumil.shop^
 ||mysterious-emotion.com^
 ||mysterysaunaawkward.com^
+||mysticaladoptionocean.com^
 ||mysticmodelsgrieced.cyou^
 ||mysticomen.com^
 ||mysweet-flirts-hubs.com^
@@ -139083,6 +139116,7 @@ dlsdk.appsflyer.com^
 ||optad360.net^
 ||optedquality.qpon^
 ||opticlygremio.com^
+||opticsmonimia.cfd^
 ||optidownloader.com^
 ||optimisticcapital.pro^
 ||optimisticirresponsibility.com^
@@ -139529,6 +139563,7 @@ dlsdk.appsflyer.com^
 ||oxmhrrzmoqnco.online^
 ||oxrdktkaktdod.online^
 ||oxreevtzvttav.space^
+||oxrmixgve59rjpxgc.cfd^
 ||oxromskyinhfv.site^
 ||oxrqbdaslqcek.space^
 ||oxshgkbicsayq.website^
@@ -140570,6 +140605,7 @@ dlsdk.appsflyer.com^
 ||pkahpynblcscu.space^
 ||pkcnrmnkwknx.com^
 ||pkdanfftxztum.space^
+||pkgsuredo.cfd^
 ||pkiagqasgbgqx.online^
 ||pkiigvaxvcsqe.online^
 ||pkijehrn9hloq84fy.rest^
@@ -141064,6 +141100,7 @@ dlsdk.appsflyer.com^
 ||ppctraffic.co^
 ||ppduaejaozsch.website^
 ||ppedzeazco.in^
+||ppeqetzfaepfc.space^
 ||pperkvadtvtxk.online^
 ||pphieftkuwccw.site^
 ||ppidyzfzhhthj.space^
@@ -141130,6 +141167,7 @@ dlsdk.appsflyer.com^
 ||practical-associate.pro^
 ||practical-interest.com^
 ||practicalboil.com^
+||practicantihum.cyou^
 ||practicecash.com^
 ||practicedrectification.com^
 ||practiceparlour.com^
@@ -141140,6 +141178,7 @@ dlsdk.appsflyer.com^
 ||prankhistorian.com^
 ||praosthill.cfd^
 ||prateranglo.cfd^
+||prattlenymphos.cfd^
 ||prawnyattorns.com^
 ||prayersoriginate.com^
 ||prayratesantibiotic.com^
@@ -142766,6 +142805,7 @@ dlsdk.appsflyer.com^
 ||rajidaeglowtrawley.cyou^
 ||rajndfcdtacfi.website^
 ||rak8s.com^
+||rakeagerosel.com^
 ||rakerscoofsmahajan.cfd^
 ||rakiblinger.com^
 ||rakishgabling.com^
@@ -143285,6 +143325,7 @@ dlsdk.appsflyer.com^
 ||relishsupportive.com^
 ||reljmonrmipxw.space^
 ||rellsagesamerence.com^
+||relnewsier.cfd^
 ||reluctancefleck.com^
 ||reluctancegenetic.com^
 ||reluctantlyaluminiumput.com^
@@ -143924,6 +143965,7 @@ dlsdk.appsflyer.com^
 ||rofncczqeznbj.space^
 ||rogciihbvtvda.online^
 ||rogeroalumnusjoutes.cfd^
+||roggledourseptets.cyou^
 ||roguessimooms.cyou^
 ||rohanpinonic.com^
 ||roiapp.net^
@@ -144112,6 +144154,7 @@ dlsdk.appsflyer.com^
 ||rrpuoifwzxgkh.site^
 ||rrqwarwomrmbj.top^
 ||rrrucdrkmpqed.website^
+||rruermzwlaewg.website^
 ||rrvllvxqfobil.site^
 ||rrxzvejfrjtij.space^
 ||rryev3je4nh1bo6t7.cfd^
@@ -144538,6 +144581,7 @@ dlsdk.appsflyer.com^
 ||salleamebean.com^
 ||salmochufa.com^
 ||salmoncontroversy.com^
+||salmuphahdgcc.site^
 ||saloopsphonerenigua.cfd^
 ||salpoidviolan.qpon^
 ||salseprudely.com^
@@ -144551,6 +144595,7 @@ dlsdk.appsflyer.com^
 ||salutetutortwiddling.com^
 ||salvageapplet.com^
 ||salvocutling.qpon^
+||salvoedbias.qpon^
 ||samage-bility.icu^
 ||sambalrambler.com^
 ||sambascoster.qpon^
@@ -145970,6 +146015,7 @@ dlsdk.appsflyer.com^
 ||snailammoniabees.com^
 ||snailscrambledcontrivance.com^
 ||snailthreatenedinvited.com^
+||snakeryreclang.cfd^
 ||snammar-jumntal.com^
 ||snappedsafetysuccessfully.com^
 ||snappyallowwithdrew.com^
@@ -146292,6 +146338,7 @@ dlsdk.appsflyer.com^
 ||sparverliardbimotor.cyou^
 ||spasmedschofleuret.cyou^
 ||spatacquaint.com^
+||spatheddecatyl.cyou^
 ||spatioludwig.com^
 ||spatzleecotype.com^
 ||spaviesbalanta.qpon^
@@ -146622,6 +146669,7 @@ dlsdk.appsflyer.com^
 ||stainedhost.pro^
 ||stainedsister.pro^
 ||staininhibitfaraway.com^
+||stairhamitalalterne.cfd^
 ||stairwellansweredsalute.com^
 ||stakevealier.cfd^
 ||staldereeten.qpon^
@@ -146784,6 +146832,7 @@ dlsdk.appsflyer.com^
 ||stoajotdjrzyr.site^
 ||stoampaliy.net^
 ||stoastenore.qpon^
+||stoatstecla.qpon^
 ||stockingchancymagically.com^
 ||stockingsfiddlesophisticated.com^
 ||stockpresentsauspice.com^
@@ -147324,6 +147373,7 @@ dlsdk.appsflyer.com^
 ||switchofers.com^
 ||switchtwentiesduty.com^
 ||switheupsmite.cfd^
+||swivetstithy.cyou^
 ||swizzlehellersphearse.cyou^
 ||swizzmetage.cfd^
 ||swkjtstjnvogh.site^
@@ -147454,6 +147504,7 @@ dlsdk.appsflyer.com^
 ||szqxvo.com^
 ||szriknglmmlrv.site^
 ||szuyezltkzrku.space^
+||szvukrkrtmody.com^
 ||szwrfefyffnaf.space^
 ||szwzkummtjbag.online^
 ||t.uc.cn^
@@ -147465,6 +147516,7 @@ dlsdk.appsflyer.com^
 ||t7k8hj4tw7ev6vc76qon3.rest^
 ||t84lkychhcmi4696wij.cfd^
 ||t85itha3nitde.com^
+||t8fcpe4ir9v8xixbtjh.rest^
 ||t93179898pq8u2ynyvwluc.cfd^
 ||ta3nfsordd.com^
 ||taarurinarytitian.qpon^
@@ -147694,6 +147746,7 @@ dlsdk.appsflyer.com^
 ||tdlslhpumbsaj.online^
 ||tdmogwlkwcgiu.site^
 ||tdnqgundzquge.website^
+||tdosmagsmlpxp.com^
 ||tdoxvlhvoyfld.site^
 ||tdrczdscckdwu.online^
 ||tdsafe.org^
@@ -148792,6 +148845,7 @@ dlsdk.appsflyer.com^
 ||trifolygeleem.cfd^
 ||trigaetarin.shop^
 ||trigami.com^
+||triggerrudas.cfd^
 ||triggersdelusion.com^
 ||triglysup.cfd^
 ||trijetzombie.cfd^
@@ -149461,6 +149515,7 @@ dlsdk.appsflyer.com^
 ||ufyxvgupbdcjv.website^
 ||ufzyypwinfvbh.site^
 ||ugadceetawiae.site^
+||ugaliaureoushobbet.cfd^
 ||ugaombhsfshhw.site^
 ||ugckdqswxxhav.com^
 ||ugg8kok7g275hh.cfd^
@@ -149584,6 +149639,7 @@ dlsdk.appsflyer.com^
 ||ukxkyugezizqp.space^
 ||ukzbcqrufjkrk.site^
 ||ul781kbcu2iyce.cfd^
+||ulamafluxive.com^
 ||ulaodqkxrgard.website^
 ||ulbruiqadlmaa.online^
 ||ulbsqeyjjthea.site^
@@ -150723,6 +150779,7 @@ dlsdk.appsflyer.com^
 ||veinsoloistsubstitute.com^
 ||veireagins.qpon^
 ||vekmygssmfyov.online^
+||vekwxixfyljxb.online^
 ||velatestubb.com^
 ||velbiotaxyshout.qpon^
 ||velhleejddigq.online^
@@ -151062,6 +151119,7 @@ dlsdk.appsflyer.com^
 ||vjhixkkzjtlau.online^
 ||vjlckfkbcuswo.site^
 ||vjlyljbbwmkyj.top^
+||vjmgbqsfccp.com^
 ||vjmrjomyweqew.top^
 ||vjmwnvteuhwhe.website^
 ||vjpraiveafxow.space^
@@ -153308,6 +153366,8 @@ dlsdk.appsflyer.com^
 ||xjssvmqlyreua.space^
 ||xjuoopnalaycv.site^
 ||xjurarsoqdinb.website^
+||xjvudcmxkcsmj.com^
+||xjvuluvmtluxt.online^
 ||xjvwt2vr.xyz^
 ||xjwkmuaaleotc.space^
 ||xjwtaasbbrhyv.site^
@@ -153502,6 +153562,7 @@ dlsdk.appsflyer.com^
 ||xrbcmxuzmyfzj.website^
 ||xrbxqqyscduwx.site^
 ||xrff-adguard.pro^
+||xrghhenchuigi.com^
 ||xriilfnjxunjw.site^
 ||xrllratggofic.online^
 ||xrmkvbidvmrsz.online^
@@ -153651,6 +153712,7 @@ dlsdk.appsflyer.com^
 ||xwctiiqickiaylo.com^
 ||xweaczbjyftvd.site^
 ||xwfafjiihnpmy.space^
+||xwfhxrmbzsblo.site^
 ||xwgbnryynelfd.site^
 ||xwgkbcbvjjvxr.website^
 ||xwhztrazolmbm.space^
@@ -153686,6 +153748,7 @@ dlsdk.appsflyer.com^
 ||xxikeloids.cyou^
 ||xxipyvnzwzxmq.online^
 ||xxkagukmsbtbp.site^
+||xxkcygkzdchkf.space^
 ||xxlahqxgriyco.online^
 ||xxmcqrhazltss.space^
 ||xxmwlprw.com^
@@ -155034,6 +155097,7 @@ dlsdk.appsflyer.com^
 ||zonalcaracks.qpon^
 ||zonariabema.cyou^
 ||zonealta.com^
+||zonedguenonpayt.qpon^
 ||zonedummy.com^
 ||zonedustertractor.com^
 ||zonfbjtqyykqo.website^
@@ -158482,6 +158546,9 @@ dlsdk.appsflyer.com^
 ||kpymx56ch3.com^
 ||b56iy3m1jg.com^
 ||m96v7deg59.com^
+||5e9rwtjh1s.com^
+||pzmu7go7i2.com^
+||gzx2d0jvwm.com^
 ||bulwark37.top^
 ||jxvylwrra.com^
 ||zellxviqqlhdpg.com^
@@ -165411,6 +165478,7 @@ dlsdk.appsflyer.com^
 ||drydrum.com^
 ||dryerwasher.com^
 ||dualping.com^
+||dusthorses.com^
 ||dustydime.com^
 ||dustyhammer.com^
 ||dyecloud.com^
